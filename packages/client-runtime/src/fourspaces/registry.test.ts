@@ -16,6 +16,7 @@ import {
   resolveProjectSpace,
   sanitizeEnvironmentState,
   sanitizeRegistry,
+  selectOrganizedWorkspaces,
   selectProjectsForSpace,
   selectUnsortedProjects,
   selectVisibleProjects,
@@ -294,6 +295,26 @@ describe("fourspaces registry", () => {
         (item) => item.id,
       ),
     ).toEqual(["p-exp", "p-new"]);
+  });
+
+  it("lists organized workspaces sorted by root, even without a live project", () => {
+    let state = emptyEnvironmentState();
+    state = upsertWorkspaceEntry(state, entry({ workspaceId: "w-b", workspaceRoot: "/work/b" }));
+    state = upsertWorkspaceEntry(
+      state,
+      entry({ workspaceId: "w-a", workspaceRoot: "/work/a", kind: "product" }),
+    );
+    state = upsertWorkspaceEntry(
+      state,
+      entry({ workspaceId: "w-gone", workspaceRoot: "/work/gone", projectId: null }),
+    );
+    expect(selectOrganizedWorkspaces(state).map((item) => item.entry.workspaceId)).toEqual([
+      "w-a",
+      "w-b",
+      "w-gone",
+    ]);
+    expect(selectOrganizedWorkspaces(state)[2]?.projectId).toBeNull();
+    expect(selectOrganizedWorkspaces(emptyEnvironmentState())).toEqual([]);
   });
 
   it("round-trips the default import mode with keep as fallback", () => {

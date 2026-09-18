@@ -27,6 +27,12 @@
 
 ## Recent meaningful changes
 
+- FAS 9 klar (2026-09-18): Promote — kind-byte + valfri flytt i From T3-fliken.
+  - Delat: `selectOrganizedWorkspaces` (+test): klassificerade rader sorterade på root, även utan live-projekt.
+  - Web: OrganizePanel fick Organized-sektion (checkbox + kind-radio + Move-toggle med destinationspreview; single Apply med job-snapshot före första await; fel samlas, framgång applyas radvis). Uns­orted-sektion oförändrad i beteende.
+  - Klassificering först, flytt separat: type-only ändrar bara raden; move kör relocate RPC + `project.meta.update` (identitet/trådar/historik bevaras).
+  - Fällor: osorterade är förvalda — smokes måste avmarkera ("Select none") annars klassificeras hela dev-katalogen (hände, ofarligt); toast har role=dialog (skopa selektorer); 1 ny compiler-warning av redan vanlig klass (Sidebar har 27).
+  - Verifierat: type-only (kind product, mapp+DB-root orörda), move (källa borta, dest med marker, DB-root följer, samma project-id), 0 pageerrors. tsc rena, 25 tester, lint 0 errors. Fixturer städade.
 - FAS 8 klar (2026-09-18): Product → New Experiment + relation + PRODUCT_CONTEXT.
   - Delat: `fourspaces/product-context.ts` (+tester): snapshot-byggare (README/AGENTS/NOTES/product-memory, trunkering, null vid tomt), related-lista. Registry: `resolveOriginProductTitle` + `resolveOriginProductRef` (+tester).
   - Web: `ProductDialog.tsx` (översikt: titel/root/counts, relaterade experiment med open, New Experiment, Notes), New-dialog med From-linje + snapshot-skrivning (best effort, blockerar aldrig), ui-store mode + host, ChatHeader: produktknapp (Package) + From-chips.
@@ -80,4 +86,4 @@
 
 1. NÄR ALLA FASER ÄR KLARA (användarens beslut 2026-09-18): skapa personlig GitHub-fork + remote + pusha. Tills dess: endast lokala commits, aldrig pusha till upstream.
 2. FAS 6: visuellt skal (spacing, typografi, ljusa ytor) — funktionellt klart under.
-3. FAS 9+: Promote (Experiment→Project/Product, Project↔Product), usage-bar + OpenRouter, Scheduled.
+3. FAS 10+: global usage-bar + OpenRouter, Scheduled (create/edit/run/pause/history).

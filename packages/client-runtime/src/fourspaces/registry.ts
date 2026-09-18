@@ -397,3 +397,27 @@ export function selectUnsortedProjects<T extends SpaceProject>(
     )
     .sort((left, right) => left.workspaceRoot.localeCompare(right.workspaceRoot));
 }
+
+export interface OrganizedWorkspace {
+  readonly entry: FourSpacesWorkspaceEntry;
+  /** Linked T3 project id when the entry has one (may be gone from the catalog). */
+  readonly projectId: string | null;
+  /** Current root (entry root; the project record may lag after external moves). */
+  readonly workspaceRoot: string;
+}
+
+/**
+ * Classified workspaces in an environment: the "organized" list the promote
+ * flow offers kind changes for. Sorted by root for stable dialog lists.
+ * Entries whose project vanished from the catalog are still listed (by
+ * entry root) so a classification is never silently lost.
+ */
+export function selectOrganizedWorkspaces(state: FourSpacesEnvironmentState): OrganizedWorkspace[] {
+  return [...state.entries]
+    .map((entry) => ({
+      entry,
+      projectId: entry.projectId ?? null,
+      workspaceRoot: entry.workspaceRoot,
+    }))
+    .sort((left, right) => left.workspaceRoot.localeCompare(right.workspaceRoot));
+}

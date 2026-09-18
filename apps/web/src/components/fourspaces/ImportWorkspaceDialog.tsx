@@ -15,6 +15,7 @@ import {
 import {
   resolveDefaultImportMode,
   resolveDefaultRoot,
+  selectOrganizedWorkspaces,
   selectUnsortedProjects,
   type FourSpaceKind,
 } from "@t3tools/client-runtime/fourspaces/registry";
@@ -112,7 +113,7 @@ export function ImportWorkspaceDialog() {
           <DialogDescription>
             {dialog.mode === "import"
               ? "Register any folder as an Experiment, Project or Product. Nothing inside it is changed."
-              : "Classify existing T3 workspaces. Nothing is moved."}
+              : "Classify existing T3 workspaces, or change the type of organized ones. Moving is optional."}
           </DialogDescription>
         </DialogHeader>
         <div
@@ -578,12 +579,21 @@ function OrganizePanel({
   const { environmentId, environment, setEnvironmentId } = useDialogEnvironment();
   const registryStore = useFourspacesRegistryStore();
   const upsertEntry = useFourspacesRegistryStore((state) => state.upsertWorkspaceEntry);
+  const updateProject = useAtomCommand(projectEnvironment.update, { reportFailure: false });
+  const relocate = useAtomCommand(fourspacesEnvironment.relocateWorkspace, {
+    reportFailure: false,
+  });
   const [checked, setChecked] = useState<ReadonlySet<string> | null>(null);
   const [kinds, setKinds] = useState<Record<string, FourSpaceKind>>({});
+  const [promoteChecked, setPromoteChecked] = useState<ReadonlySet<string>>(new Set());
+  const [promoteKinds, setPromoteKinds] = useState<Record<string, FourSpaceKind>>({});
+  const [promoteMoves, setPromoteMoves] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const registryState =
     environmentId != null ? selectEnvironmentRegistry(registryStore, environmentId) : null;
+  const defaultRoot = registryState ? resolveDefaultRoot(registryState) : "~/T3";
   const unsorted = useMemo(
     () =>
       environmentId != null && registryState
@@ -591,6 +601,7 @@ function OrganizePanel({
         : [],
     [environmentId, projects, registryState],
   );
+  const organized = registryState ? selectOrganizedWorkspaces(registryState) : [];
   const checkedIds = checked ?? new Set(unsorted.map((project) => project.id));
   const kindFor = (projectId: string): FourSpaceKind =>
     kinds[projectId] ?? kindForSpace(initialSpace);
@@ -600,10 +611,10 @@ function OrganizePanel({
       <p className="text-[13px] text-muted-foreground">The selected machine is not connected.</p>
     );
   }
-  if (unsorted.length === 0) {
+  if (unsorted.length === 0 && organized.length === 0) {
     return (
       <p className="text-[13px] text-muted-foreground">
-        No unsorted workspaces on this machine — everything is organized.
+        No workspaces on this machine yet — import a folder to get started.
       </p>
     );
   }
@@ -615,11 +626,26 @@ function OrganizePanel({
     setChecked(next);
   };
 
-  const apply = () => {
+  const togglePromote = (workspaceId: string) => {
+    const next = new Set(promoteChecked);
+    if (next.has(workspaceId)) next.delete(workspaceId);
+    else next.add(workspaceId);
+    setPromoteChecked(next);
+  };
+
+  const promoteKindFor = (workspaceId: string, current: FourSpaceKind): FourSpaceKind =>
+    promoteKinds[workspaceId] ?? current;
+
+  const promoteDestinationFor = (workspaceId: string, root: string, kind: FourSpaceKind) =>
+    resolveImportDestination(defaultRoot, kind, basenameForImport(root));
+
+  const apply = async () => {
     if (busy || !environmentId) return;
     setBusy(true);
+    setError(null);
     try {
       let count = 0;
+      let firstError: string | null = null;
       for (const project of unsorted) {
         if (!checkedIds.has(project.id)) continue;
         const kind = kindFor(project.id);
@@ -631,9 +657,66 @@ function OrganizePanel({
         });
         count += 1;
       }
+      // Snapshot the promote jobs before the first await: dialog state may
+      // change while a relocate is in flight, and jobs must not shift.
+      const promoteJobs = organized.flatMap((item) => {
+        if (!promoteChecked.has(item.entry.workspaceId)) return [];
+        const newKind = promoteKindFor(item.entry.workspaceId, item.entry.kind);
+        const wantMove = !!promoteMoves[item.entry.workspaceId];
+        const destination = promoteDestinationFor(
+          item.entry.workspaceId,
+          item.workspaceRoot,
+          newKind,
+        );
+        const kindChanged = newKind !== item.entry.kind;
+        const moveChanged = wantMove && destination !== null && destination !== item.workspaceRoot;
+        if (!kindChanged && !moveChanged) return [];
+        return [{ item, newKind, destination: moveChanged ? destination : null }];
+      });
+      for (const job of promoteJobs) {
+        const { item, newKind, destination } = job;
+        if (destination) {
+          const relocated = await relocate({
+            environmentId,
+            input: { sourcePath: item.workspaceRoot, destinationPath: destination, mode: "move" },
+          });
+          if (relocated._tag === "Failure") {
+            if (!isAtomCommandInterrupted(relocated)) {
+              firstError ??= relocateErrorMessage(squashAtomCommandFailure(relocated));
+            }
+            continue;
+          }
+          const nextRoot = relocated.value.destinationPath;
+          if (item.projectId) {
+            const updated = await updateProject({
+              environmentId,
+              input: { projectId: item.projectId as ProjectId, workspaceRoot: nextRoot },
+            });
+            if (updated._tag === "Failure") {
+              if (!isAtomCommandInterrupted(updated)) {
+                firstError ??= `The folder moved to ${nextRoot}, but the workspace record could not follow it. Import that folder again with Keep in place.`;
+              }
+            }
+          }
+          upsertEntry(environmentId, { ...item.entry, workspaceRoot: nextRoot, kind: newKind });
+          count += 1;
+        } else {
+          upsertEntry(environmentId, { ...item.entry, kind: newKind });
+          count += 1;
+        }
+      }
+      if (firstError) {
+        setError(firstError);
+        return;
+      }
       toastManager.add({
         type: "success",
-        title: count === 1 ? "Organized 1 workspace" : `Organized ${count} workspaces`,
+        title:
+          count === 1
+            ? "Organized 1 workspace"
+            : unsorted.length > 0 && organized.length === 0 && count === checkedIds.size
+              ? `Organized ${count} workspaces`
+              : `Applied ${count} changes`,
       });
       onDone();
     } finally {
@@ -641,73 +724,186 @@ function OrganizePanel({
     }
   };
 
+  const totalSelected = checkedIds.size + promoteChecked.size;
   return (
-    <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
+    <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
       <EnvironmentPicker value={environmentId} onChange={setEnvironmentId} />
-      <div className="flex items-center gap-2 text-[13px]">
-        <button
-          className="cursor-pointer text-muted-foreground underline-offset-2 hover:underline"
-          onClick={() =>
-            setChecked(
-              checkedIds.size === unsorted.length
-                ? new Set()
-                : new Set(unsorted.map((project) => project.id)),
-            )
-          }
+      {unsorted.length > 0 ? (
+        <>
+          <h3 className="text-[13px] font-medium text-foreground">Unsorted workspaces</h3>
+          <div className="flex items-center gap-2 text-[13px]">
+            <button
+              className="cursor-pointer text-muted-foreground underline-offset-2 hover:underline"
+              onClick={() =>
+                setChecked(
+                  checkedIds.size === unsorted.length
+                    ? new Set()
+                    : new Set(unsorted.map((project) => project.id)),
+                )
+              }
+              type="button"
+            >
+              {checkedIds.size === unsorted.length ? "Select none" : "Select all"}
+            </button>
+            <span className="text-muted-foreground">
+              {checkedIds.size} of {unsorted.length} selected
+            </span>
+          </div>
+          {unsorted.map((project) => (
+            <div
+              className="flex items-center gap-2 rounded-lg border border-border/70 px-2.5 py-2"
+              key={`${project.environmentId}:${project.id}`}
+            >
+              <input
+                aria-label={`Select ${project.title}`}
+                checked={checkedIds.has(project.id)}
+                className="size-4 shrink-0"
+                onChange={() => toggle(project.id)}
+                type="checkbox"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-medium text-foreground">{project.title}</p>
+                <p className="truncate font-mono text-[11px] text-muted-foreground">
+                  {project.workspaceRoot}
+                </p>
+              </div>
+              <div
+                className="flex shrink-0 gap-0.5 rounded-md bg-input/40 p-0.5"
+                role="radiogroup"
+                aria-label={`Type for ${project.title}`}
+              >
+                {KIND_OPTIONS.map((kind) => (
+                  <button
+                    aria-pressed={kindFor(project.id) === kind}
+                    className={
+                      kindFor(project.id) === kind
+                        ? "cursor-pointer rounded px-1.5 py-1 text-[11px] font-medium text-foreground shadow-sm bg-background"
+                        : "cursor-pointer rounded px-1.5 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+                    }
+                    key={kind}
+                    onClick={() => setKinds((current) => ({ ...current, [project.id]: kind }))}
+                    type="button"
+                    role="radio"
+                    aria-checked={kindFor(project.id) === kind}
+                  >
+                    {FOURSPACE_LABELS[kind]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </>
+      ) : null}
+      {organized.length > 0 ? (
+        <>
+          <h3 className="text-[13px] font-medium text-foreground">Organized workspaces</h3>
+          <p className="text-xs text-muted-foreground">
+            Change the type without moving, or tick Move to relocate into the standard root. The
+            workspace keeps its threads, history and Git either way.
+          </p>
+          {organized.map((item) => {
+            const linked = item.projectId
+              ? (projects.find((project) => project.id === item.projectId) ?? null)
+              : null;
+            const title = linked?.title ?? basenameForImport(item.workspaceRoot);
+            const newKind = promoteKindFor(item.entry.workspaceId, item.entry.kind);
+            const wantMove = !!promoteMoves[item.entry.workspaceId];
+            const destination = promoteDestinationFor(
+              item.entry.workspaceId,
+              item.workspaceRoot,
+              newKind,
+            );
+            const kindChanged = newKind !== item.entry.kind;
+            return (
+              <div
+                className="flex flex-col gap-2 rounded-lg border border-border/70 px-2.5 py-2"
+                key={item.entry.workspaceId}
+              >
+                <div className="flex items-center gap-2">
+                  <input
+                    aria-label={`Promote ${title}`}
+                    checked={promoteChecked.has(item.entry.workspaceId)}
+                    className="size-4 shrink-0"
+                    onChange={() => togglePromote(item.entry.workspaceId)}
+                    type="checkbox"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-medium text-foreground">
+                      {title}{" "}
+                      <span className="font-normal text-muted-foreground">
+                        ({FOURSPACE_LABELS[item.entry.kind]})
+                      </span>
+                    </p>
+                    <p className="truncate font-mono text-[11px] text-muted-foreground">
+                      {item.workspaceRoot}
+                    </p>
+                  </div>
+                  <div
+                    className="flex shrink-0 gap-0.5 rounded-md bg-input/40 p-0.5"
+                    role="radiogroup"
+                    aria-label={`New type for ${title}`}
+                  >
+                    {KIND_OPTIONS.map((kind) => (
+                      <button
+                        aria-pressed={newKind === kind}
+                        className={
+                          newKind === kind
+                            ? "cursor-pointer rounded px-1.5 py-1 text-[11px] font-medium text-foreground shadow-sm bg-background"
+                            : "cursor-pointer rounded px-1.5 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+                        }
+                        key={kind}
+                        onClick={() =>
+                          setPromoteKinds((current) => ({
+                            ...current,
+                            [item.entry.workspaceId]: kind,
+                          }))
+                        }
+                        type="button"
+                        role="radio"
+                        aria-checked={newKind === kind}
+                      >
+                        {FOURSPACE_LABELS[kind]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                  <input
+                    aria-label={`Move ${title} into standard root`}
+                    checked={wantMove}
+                    className="size-3.5 shrink-0"
+                    onChange={() =>
+                      setPromoteMoves((current) => ({
+                        ...current,
+                        [item.entry.workspaceId]: !wantMove,
+                      }))
+                    }
+                    type="checkbox"
+                  />
+                  <span className="min-w-0 flex-1 truncate">
+                    {wantMove
+                      ? `Move to ${destination ?? "—"}`
+                      : `Keep in place${kindChanged ? ` (type becomes ${FOURSPACE_LABELS[newKind]})` : ""}`}
+                  </span>
+                </label>
+              </div>
+            );
+          })}
+        </>
+      ) : null}
+      {error ? (
+        <p className="text-[13px] text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <DialogFooter>
+        <Button
+          disabled={busy || totalSelected === 0}
+          onClick={() => void apply()}
+          size="sm"
           type="button"
         >
-          {checkedIds.size === unsorted.length ? "Select none" : "Select all"}
-        </button>
-        <span className="text-muted-foreground">
-          {checkedIds.size} of {unsorted.length} selected
-        </span>
-      </div>
-      {unsorted.map((project) => (
-        <div
-          className="flex items-center gap-2 rounded-lg border border-border/70 px-2.5 py-2"
-          key={`${project.environmentId}:${project.id}`}
-        >
-          <input
-            aria-label={`Select ${project.title}`}
-            checked={checkedIds.has(project.id)}
-            className="size-4 shrink-0"
-            onChange={() => toggle(project.id)}
-            type="checkbox"
-          />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-medium text-foreground">{project.title}</p>
-            <p className="truncate font-mono text-[11px] text-muted-foreground">
-              {project.workspaceRoot}
-            </p>
-          </div>
-          <div
-            className="flex shrink-0 gap-0.5 rounded-md bg-input/40 p-0.5"
-            role="radiogroup"
-            aria-label={`Type for ${project.title}`}
-          >
-            {KIND_OPTIONS.map((kind) => (
-              <button
-                aria-pressed={kindFor(project.id) === kind}
-                className={
-                  kindFor(project.id) === kind
-                    ? "cursor-pointer rounded px-1.5 py-1 text-[11px] font-medium text-foreground shadow-sm bg-background"
-                    : "cursor-pointer rounded px-1.5 py-1 text-[11px] text-muted-foreground hover:text-foreground"
-                }
-                key={kind}
-                onClick={() => setKinds((current) => ({ ...current, [project.id]: kind }))}
-                type="button"
-                role="radio"
-                aria-checked={kindFor(project.id) === kind}
-              >
-                {FOURSPACE_LABELS[kind]}
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
-      <DialogFooter>
-        <Button disabled={busy || checkedIds.size === 0} onClick={apply} size="sm" type="button">
-          {busy ? "Organizing…" : `Organize ${checkedIds.size}`}
+          {busy ? "Applying…" : `Apply (${totalSelected} selected)`}
         </Button>
       </DialogFooter>
     </div>
