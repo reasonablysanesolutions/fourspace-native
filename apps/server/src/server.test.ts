@@ -37,6 +37,7 @@ import {
   type ProviderInstallState,
   ProviderSetupError,
   ResolvedKeybindingRule,
+  ScheduledJobError,
   type ServerLifecycleStreamEvent,
   ThreadId,
   TurnId,
@@ -123,6 +124,7 @@ import * as Keybindings from "./keybindings.ts";
 import * as ExternalLauncher from "./process/externalLauncher.ts";
 import * as RemoteOpenTargets from "./environment/RemoteOpenTargets.ts";
 import * as OrchestrationEngine from "./orchestration/Services/OrchestrationEngine.ts";
+import * as ScheduledJobs from "./fourspaces/scheduledJobs.ts";
 import {
   OrchestrationListenerCallbackError,
   OrchestrationThreadSettleBlockedError,
@@ -543,6 +545,7 @@ const buildAppUnderTest = (options?: {
     >;
     terminalManager?: Partial<TerminalManager.TerminalManager["Service"]>;
     orchestrationEngine?: Partial<OrchestrationEngine.OrchestrationEngineService["Service"]>;
+    scheduledJobs?: Partial<ScheduledJobs.ScheduledJobs["Service"]>;
     threadDeletionReactor?: Partial<ThreadDeletionReactor["Service"]>;
     analyticsService?: Partial<AnalyticsService.AnalyticsService["Service"]>;
     projectionSnapshotQuery?: Partial<ProjectionSnapshotQuery.ProjectionSnapshotQuery["Service"]>;
@@ -995,6 +998,19 @@ const buildAppUnderTest = (options?: {
             start: () => Effect.void,
             drainThrough: () => Effect.void,
             ...options?.layers?.threadDeletionReactor,
+          }),
+          Layer.mock(ScheduledJobs.ScheduledJobs)({
+            listJobs: () => Effect.succeed([]),
+            getJob: () => Effect.succeed(null),
+            createJob: () =>
+              Effect.fail(new ScheduledJobError({ message: "Scheduled jobs are mocked." })),
+            updateJob: () =>
+              Effect.fail(new ScheduledJobError({ message: "Scheduled jobs are mocked." })),
+            deleteJob: () => Effect.void,
+            runJobNow: () =>
+              Effect.fail(new ScheduledJobError({ message: "Scheduled jobs are mocked." })),
+            listRuns: () => Effect.succeed([]),
+            ...options?.layers?.scheduledJobs,
           }),
           Layer.mock(PullRequestSyncReactor.PullRequestSyncReactor)({
             start: () => Effect.void,

@@ -41,5 +41,49 @@ export function createFourspacesEnvironmentAtoms<R, E>(
         key: ({ environmentId }: { environmentId: string }) => environmentId,
       },
     }),
+    scheduledListJobs: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:scheduled:list-jobs",
+      tag: WS_METHODS.scheduledListJobs,
+      staleTimeMs: 15_000,
+      idleTtlMs: 60_000,
+    }),
+    scheduledCreateJob: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:scheduled:create-job",
+      tag: WS_METHODS.scheduledCreateJob,
+      concurrency: {
+        mode: "serial",
+        key: ({ environmentId }: { environmentId: string }) => environmentId,
+      },
+    }),
+    scheduledUpdateJob: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:scheduled:update-job",
+      tag: WS_METHODS.scheduledUpdateJob,
+      concurrency: {
+        mode: "serial",
+        key: ({ environmentId }: { environmentId: string }) => environmentId,
+      },
+    }),
+    scheduledDeleteJob: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:scheduled:delete-job",
+      tag: WS_METHODS.scheduledDeleteJob,
+      concurrency: {
+        mode: "serial",
+        key: ({ environmentId }: { environmentId: string }) => environmentId,
+      },
+    }),
+    scheduledRunJobNow: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:scheduled:run-job-now",
+      tag: WS_METHODS.scheduledRunJobNow,
+      concurrency: {
+        mode: "serial",
+        key: ({ environmentId }: { environmentId: string }) => environmentId,
+      },
+    }),
+    scheduledListRuns: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:scheduled:list-runs",
+      tag: WS_METHODS.scheduledListRuns,
+      staleTimeMs: 15_000,
+      idleTtlMs: 60_000,
+    }),
   };
 }

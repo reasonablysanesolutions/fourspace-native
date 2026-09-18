@@ -35,6 +35,16 @@ import {
   OpenRouterUsageError,
   OpenRouterUsageResult,
   SetOpenRouterKeyInput,
+  CreateScheduledJobInput,
+  UpdateScheduledJobInput,
+  DeleteScheduledJobInput,
+  RunScheduledJobInput,
+  ListScheduledRunsInput,
+  ScheduledJob,
+  ScheduledJobError,
+  ScheduledJobList,
+  ScheduledRun,
+  ScheduledRunList,
 } from "./fourspaces.ts";
 import {
   AgentSessionImportInput,
@@ -393,6 +403,12 @@ export const WS_METHODS = {
   fourspacesGetOpenRouterUsage: "fourspaces.getOpenRouterUsage",
   fourspacesSetOpenRouterKey: "fourspaces.setOpenRouterKey",
   fourspacesClearOpenRouterKey: "fourspaces.clearOpenRouterKey",
+  scheduledListJobs: "scheduled.listJobs",
+  scheduledCreateJob: "scheduled.createJob",
+  scheduledUpdateJob: "scheduled.updateJob",
+  scheduledDeleteJob: "scheduled.deleteJob",
+  scheduledRunJobNow: "scheduled.runJobNow",
+  scheduledListRuns: "scheduled.listRuns",
 
   // Cloud environment methods
   cloudGetRelayClientStatus: "cloud.getRelayClientStatus",
@@ -677,6 +693,42 @@ const WsFourspacesClearOpenRouterKeyRpc = Rpc.make(WS_METHODS.fourspacesClearOpe
   payload: Schema.Struct({}),
   success: Schema.Struct({}),
   error: Schema.Union([OpenRouterUsageError, EnvironmentAuthorizationError]),
+});
+
+const WsScheduledListJobsRpc = Rpc.make(WS_METHODS.scheduledListJobs, {
+  payload: Schema.Struct({}),
+  success: ScheduledJobList,
+  error: Schema.Union([ScheduledJobError, EnvironmentAuthorizationError]),
+});
+
+const WsScheduledCreateJobRpc = Rpc.make(WS_METHODS.scheduledCreateJob, {
+  payload: CreateScheduledJobInput,
+  success: ScheduledJob,
+  error: Schema.Union([ScheduledJobError, EnvironmentAuthorizationError]),
+});
+
+const WsScheduledUpdateJobRpc = Rpc.make(WS_METHODS.scheduledUpdateJob, {
+  payload: UpdateScheduledJobInput,
+  success: ScheduledJob,
+  error: Schema.Union([ScheduledJobError, EnvironmentAuthorizationError]),
+});
+
+const WsScheduledDeleteJobRpc = Rpc.make(WS_METHODS.scheduledDeleteJob, {
+  payload: DeleteScheduledJobInput,
+  success: Schema.Struct({}),
+  error: Schema.Union([ScheduledJobError, EnvironmentAuthorizationError]),
+});
+
+const WsScheduledRunJobNowRpc = Rpc.make(WS_METHODS.scheduledRunJobNow, {
+  payload: RunScheduledJobInput,
+  success: ScheduledRun,
+  error: Schema.Union([ScheduledJobError, EnvironmentAuthorizationError]),
+});
+
+const WsScheduledListRunsRpc = Rpc.make(WS_METHODS.scheduledListRuns, {
+  payload: ListScheduledRunsInput,
+  success: ScheduledRunList,
+  error: Schema.Union([ScheduledJobError, EnvironmentAuthorizationError]),
 });
 
 const WsServerSignalProcessRpc = Rpc.make(WS_METHODS.serverSignalProcess, {
@@ -1444,6 +1496,12 @@ export const WsRpcGroup = RpcGroup.make(
   WsFourspacesGetOpenRouterUsageRpc,
   WsFourspacesSetOpenRouterKeyRpc,
   WsFourspacesClearOpenRouterKeyRpc,
+  WsScheduledListJobsRpc,
+  WsScheduledCreateJobRpc,
+  WsScheduledUpdateJobRpc,
+  WsScheduledDeleteJobRpc,
+  WsScheduledRunJobNowRpc,
+  WsScheduledListRunsRpc,
   WsServerSignalProcessRpc,
   WsServerReportClientActivityRpc,
   WsServerReportHostPowerStateRpc,

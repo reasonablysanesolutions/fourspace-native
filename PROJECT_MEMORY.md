@@ -27,6 +27,12 @@
 
 ## Recent meaningful changes
 
+- FAS 11 klar (2026-09-18): Scheduled — jobb som kör riktiga T3-turns.
+  - Kontrakt: schedule (once/daily/weekly/interval + tz), jobb, runs, CRUD-inputs, list-wrappers.
+  - Server: migration 054 (jobs+runs-tabeller), `ScheduledJobs`-tjänst (CRUD, tick var 30s via forkParked, claim-före-execute, sweep av running via latestTurn + 2h-timeout, once inaktiveras efter körning), exekvering via engine.dispatch (thread.create vid behov + thread.turn.start — vanliga turns med checkpoints/streaming), layer i ReactorLayerLive + 6 RPC:er + server.test.ts-mock.
+  - Ren schedule-matte (Intl-tz, UTC-iteration) + validering, 5 tester. Klient-atoms. UI: Upcoming/Recurring/History, jobb-dialog (titel, workspace, prompt, provider/modell från server-listan, schedule-kontroller), Run now/Pause/Resume/Edit/Delete(confirm), history med duration + Open thread, 10s-poll medan runs är aktiva.
+  - Fällor (dyra): `Schema.Struct({})`-success kräver `{}`; osynkade maps→any-kaskad; Effect-functioner MÅSTE anropas (`tick()` inte `tick`); `randomUUIDv4` har E=PlatformError (mappa!); `new Date()` förbjudet även i pura funktioner (ms direkt till Intl); service-tagg måste matcha filsökväg (`t3/fourspaces/scheduledJobs`); server.test.ts-bygget behöver mock för nya tjänster; `useScopedSettings` kräver SettingsScopeProvider (ej på /scheduled — använd rå provider-lista); ProjectId/ThreadId bor i baseSchemas (ej orchestration); relativ import från fourspaces/ är `../`.
+  - Verifierat: migration appliceras, CRUD/paus/edit/delete via UI, Run now → riktig Codex-turn completed, history + open-thread, 0 pageerrors. tsc/lint/knip rena, 5+3 tester.
 - FAS 10 klar (2026-09-18): global usage-bar + OpenRouter analytics.
   - UsageBar i rail-botten (alla vyer): Codex-pool % kvar + reset (samma pooled snapshots som Limits), Today $ + Cache % (samma summary-query som usage-sidan), OR $ idag. Klick → /usage. Estimat tydligt märkta; OR i USD.
   - OpenRouter: kontrakt (status/windows/modeller, USD), server-tjänst (`/auth/key`+`/credits`+`/activity`, defensiv parsing, 5-min cache, nyckel i ServerSecretStore `fourspaces.openrouter_api_key`), 3 RPC:er (get=read, set/clear=operate), klient-atoms, settings-sektion (status, nyckelhantering, today/7d/30d, toppmodeller).
@@ -90,5 +96,5 @@
 ## Next steps
 
 1. NÄR ALLA FASER ÄR KLARA (användarens beslut 2026-09-18): skapa personlig GitHub-fork + remote + pusha. Tills dess: endast lokala commits, aldrig pusha till upstream.
-2. FAS 6: visuellt skal (spacing, typografi, ljusa ytor) — funktionellt klart under.
-3. FAS 10+: global usage-bar + OpenRouter, Scheduled (create/edit/run/pause/history).
+2. Acceptance-genomgång mot §68 (V1-kriterier): Promote Project↔Product explicit, OpenRouter med riktig nyckel, scheduled daily-tick över tid, portabilitet (annan harness mot samma katalog).
+3. Polish/edge: scheduled-jobb mot borttagna projekt (felrad finns), approve-stall (2h-timeout finns), mobil-ytor för spaces.

@@ -5,7 +5,8 @@
 // registry row) stays a client composition on top of this call.
 import * as Schema from "effect/Schema";
 
-import { NonNegativeInt, TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { NonNegativeInt, ProjectId, ThreadId, TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { ModelSelection, RuntimeMode } from "./orchestration.ts";
 
 export const RelocateWorkspaceMode = Schema.Literals(["move", "copy"]);
 export type RelocateWorkspaceMode = typeof RelocateWorkspaceMode.Type;
@@ -100,3 +101,122 @@ export const SetOpenRouterKeyInput = Schema.Struct({
   key: TrimmedNonEmptyString,
 });
 export type SetOpenRouterKeyInput = typeof SetOpenRouterKeyInput.Type;
+
+// ---------------------------------------------------------------------------
+// Scheduled jobs.
+//
+// A job automates what the user could do by hand: resolve a workspace's T3
+// project, create or resume a thread, submit a normal turn through the
+// existing provider adapters. Jobs run only while the server runs (no
+// launchd/daemon in v1). The registry workspace id is client-side only, so
+// jobs store the T3 project id the client resolved at creation.
+// ---------------------------------------------------------------------------
+
+export const ScheduledJobFrequency = Schema.Literals(["once", "daily", "weekly", "interval"]);
+export type ScheduledJobFrequency = typeof ScheduledJobFrequency.Type;
+
+export const ScheduledJobSchedule = Schema.Struct({
+  kind: ScheduledJobFrequency,
+  /** UTC instant for `once` (ISO 8601). */
+  atIso: Schema.optional(TrimmedNonEmptyString),
+  /** 0 (Sunday) .. 6 (Saturday) for `weekly`. */
+  weekday: Schema.optional(Schema.Int),
+  /** Local hour (0..23) for `daily`/`weekly`, in `timeZone`. */
+  hour: Schema.optional(Schema.Int),
+  /** Local minute (0..59) for `daily`/`weekly`, in `timeZone`. */
+  minute: Schema.optional(Schema.Int),
+  /** Minutes between runs for `interval`. */
+  intervalMinutes: Schema.optional(Schema.Int),
+  /** IANA zone daily/weekly times are interpreted in. */
+  timeZone: Schema.optional(TrimmedNonEmptyString),
+});
+export type ScheduledJobSchedule = typeof ScheduledJobSchedule.Type;
+
+export const ScheduledJob = Schema.Struct({
+  id: TrimmedNonEmptyString,
+  title: TrimmedNonEmptyString,
+  projectId: ProjectId,
+  /** Resume this thread when it still exists; otherwise create a new one. */
+  threadId: Schema.NullOr(ThreadId),
+  prompt: TrimmedNonEmptyString,
+  modelSelection: ModelSelection,
+  runtimeMode: RuntimeMode,
+  schedule: ScheduledJobSchedule,
+  enabled: Schema.Boolean,
+  createdAt: TrimmedNonEmptyString,
+  updatedAt: TrimmedNonEmptyString,
+  lastRunAt: Schema.NullOr(TrimmedNonEmptyString),
+  nextRunAt: Schema.NullOr(TrimmedNonEmptyString),
+});
+export type ScheduledJob = typeof ScheduledJob.Type;
+
+export const ScheduledRunStatus = Schema.Literals(["running", "completed", "failed"]);
+export type ScheduledRunStatus = typeof ScheduledRunStatus.Type;
+
+export const ScheduledRun = Schema.Struct({
+  id: TrimmedNonEmptyString,
+  jobId: TrimmedNonEmptyString,
+  /** Null when the run failed before any thread existed (e.g. project gone). */
+  threadId: Schema.NullOr(ThreadId),
+  startedAt: TrimmedNonEmptyString,
+  finishedAt: Schema.NullOr(TrimmedNonEmptyString),
+  status: ScheduledRunStatus,
+  error: Schema.optional(TrimmedNonEmptyString),
+});
+export type ScheduledRun = typeof ScheduledRun.Type;
+
+export const CreateScheduledJobInput = Schema.Struct({
+  title: TrimmedNonEmptyString,
+  projectId: ProjectId,
+  prompt: TrimmedNonEmptyString,
+  modelSelection: ModelSelection,
+  runtimeMode: Schema.optional(RuntimeMode),
+  schedule: ScheduledJobSchedule,
+});
+export type CreateScheduledJobInput = typeof CreateScheduledJobInput.Type;
+
+export const UpdateScheduledJobInput = Schema.Struct({
+  jobId: TrimmedNonEmptyString,
+  title: Schema.optional(TrimmedNonEmptyString),
+  projectId: Schema.optional(ProjectId),
+  prompt: Schema.optional(TrimmedNonEmptyString),
+  modelSelection: Schema.optional(ModelSelection),
+  runtimeMode: Schema.optional(RuntimeMode),
+  schedule: Schema.optional(ScheduledJobSchedule),
+  enabled: Schema.optional(Schema.Boolean),
+});
+export type UpdateScheduledJobInput = typeof UpdateScheduledJobInput.Type;
+
+export const ScheduledJobList = Schema.Struct({
+  jobs: Schema.Array(ScheduledJob),
+});
+export type ScheduledJobList = typeof ScheduledJobList.Type;
+
+export const ScheduledRunList = Schema.Struct({
+  runs: Schema.Array(ScheduledRun),
+});
+export type ScheduledRunList = typeof ScheduledRunList.Type;
+
+export const DeleteScheduledJobInput = Schema.Struct({
+  jobId: TrimmedNonEmptyString,
+});
+export type DeleteScheduledJobInput = typeof DeleteScheduledJobInput.Type;
+
+export const RunScheduledJobInput = Schema.Struct({
+  jobId: TrimmedNonEmptyString,
+});
+export type RunScheduledJobInput = typeof RunScheduledJobInput.Type;
+
+export const ListScheduledRunsInput = Schema.Struct({
+  jobId: Schema.optional(TrimmedNonEmptyString),
+  limit: Schema.optional(Schema.Int),
+});
+export type ListScheduledRunsInput = typeof ListScheduledRunsInput.Type;
+
+export class ScheduledJobError extends Schema.TaggedError<ScheduledJobError>()(
+  "ScheduledJobError",
+  {
+    message: TrimmedNonEmptyString,
+    cause: Schema.optional(Schema.Defect()),
+  },
+) {}

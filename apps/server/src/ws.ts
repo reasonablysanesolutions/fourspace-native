@@ -155,6 +155,7 @@ import * as AnalyticsService from "./telemetry/AnalyticsService.ts";
 import * as UsageLimitSources from "./usage/UsageLimitSources.ts";
 import * as UsageService from "./usage/UsageService.ts";
 import { relocateWorkspace } from "./fourspaces/relocateWorkspace.ts";
+import * as ScheduledJobs from "./fourspaces/scheduledJobs.ts";
 import {
   clearOpenRouterKey,
   getOpenRouterUsage,
@@ -670,6 +671,7 @@ const makeWsRpcLayer = (
       const processResourceMonitor = yield* ProcessResourceMonitor.ProcessResourceMonitor;
       const resourceTelemetry = yield* ResourceTelemetry.ResourceTelemetry;
       const usage = yield* UsageService.UsageService;
+      const scheduled = yield* ScheduledJobs.ScheduledJobs;
       const relayClient = yield* RelayClient.RelayClient;
       const authorizationError = (requiredScope: AuthEnvironmentScope) =>
         new EnvironmentAuthorizationError({
@@ -2624,6 +2626,44 @@ const makeWsRpcLayer = (
           observeRpcEffect(WS_METHODS.fourspacesClearOpenRouterKey, clearOpenRouterKey(), {
             "rpc.aggregate": "server",
           }),
+        [WS_METHODS.scheduledListJobs]: (_input) =>
+          observeRpcEffect(
+            WS_METHODS.scheduledListJobs,
+            scheduled.listJobs().pipe(Effect.map((jobs) => ({ jobs: [...jobs] }))),
+            {
+              "rpc.aggregate": "server",
+            },
+          ),
+        [WS_METHODS.scheduledCreateJob]: (input) =>
+          observeRpcEffect(WS_METHODS.scheduledCreateJob, scheduled.createJob(input), {
+            "rpc.aggregate": "server",
+          }),
+        [WS_METHODS.scheduledUpdateJob]: (input) =>
+          observeRpcEffect(WS_METHODS.scheduledUpdateJob, scheduled.updateJob(input), {
+            "rpc.aggregate": "server",
+          }),
+        [WS_METHODS.scheduledDeleteJob]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.scheduledDeleteJob,
+            scheduled.deleteJob(input.jobId).pipe(Effect.as({})),
+            {
+              "rpc.aggregate": "server",
+            },
+          ),
+        [WS_METHODS.scheduledRunJobNow]: (input) =>
+          observeRpcEffect(WS_METHODS.scheduledRunJobNow, scheduled.runJobNow(input.jobId), {
+            "rpc.aggregate": "server",
+          }),
+        [WS_METHODS.scheduledListRuns]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.scheduledListRuns,
+            scheduled
+              .listRuns(input.jobId, input.limit)
+              .pipe(Effect.map((runs) => ({ runs: [...runs] }))),
+            {
+              "rpc.aggregate": "server",
+            },
+          ),
         [WS_METHODS.serverRetryResourceTelemetry]: (_input) =>
           observeRpcEffect(WS_METHODS.serverRetryResourceTelemetry, resourceTelemetry.retry, {
             "rpc.aggregate": "server",
