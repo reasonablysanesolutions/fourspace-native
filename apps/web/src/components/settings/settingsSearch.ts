@@ -506,6 +506,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["four spaces import keep move copy default location"],
   },
   {
+    id: "four-spaces-openrouter",
+    title: "Four Spaces OpenRouter usage",
+    to: "/settings/four-spaces",
+    targetId: "four-spaces-openrouter",
+    searchTerms: ["four spaces openrouter spend cost analytics api key usd"],
+  },
+  {
     id: "snap-shot-accessibility",
     title: "Include app text",
     to: "/settings/snap-shot",

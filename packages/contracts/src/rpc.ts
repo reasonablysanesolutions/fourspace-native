@@ -32,6 +32,9 @@ import {
   RelocateWorkspaceError,
   RelocateWorkspaceInput,
   RelocateWorkspaceResult,
+  OpenRouterUsageError,
+  OpenRouterUsageResult,
+  SetOpenRouterKeyInput,
 } from "./fourspaces.ts";
 import {
   AgentSessionImportInput,
@@ -387,6 +390,9 @@ export const WS_METHODS = {
   serverGetUsageSummary: "server.getUsageSummary",
   serverRefreshUsageRates: "server.refreshUsageRates",
   fourspacesRelocateWorkspace: "fourspaces.relocateWorkspace",
+  fourspacesGetOpenRouterUsage: "fourspaces.getOpenRouterUsage",
+  fourspacesSetOpenRouterKey: "fourspaces.setOpenRouterKey",
+  fourspacesClearOpenRouterKey: "fourspaces.clearOpenRouterKey",
 
   // Cloud environment methods
   cloudGetRelayClientStatus: "cloud.getRelayClientStatus",
@@ -653,6 +659,24 @@ const WsFourspacesRelocateWorkspaceRpc = Rpc.make(WS_METHODS.fourspacesRelocateW
   payload: RelocateWorkspaceInput,
   success: RelocateWorkspaceResult,
   error: Schema.Union([RelocateWorkspaceError, EnvironmentAuthorizationError]),
+});
+
+const WsFourspacesGetOpenRouterUsageRpc = Rpc.make(WS_METHODS.fourspacesGetOpenRouterUsage, {
+  payload: Schema.Struct({}),
+  success: OpenRouterUsageResult,
+  error: Schema.Union([OpenRouterUsageError, EnvironmentAuthorizationError]),
+});
+
+const WsFourspacesSetOpenRouterKeyRpc = Rpc.make(WS_METHODS.fourspacesSetOpenRouterKey, {
+  payload: SetOpenRouterKeyInput,
+  success: Schema.Struct({}),
+  error: Schema.Union([OpenRouterUsageError, EnvironmentAuthorizationError]),
+});
+
+const WsFourspacesClearOpenRouterKeyRpc = Rpc.make(WS_METHODS.fourspacesClearOpenRouterKey, {
+  payload: Schema.Struct({}),
+  success: Schema.Struct({}),
+  error: Schema.Union([OpenRouterUsageError, EnvironmentAuthorizationError]),
 });
 
 const WsServerSignalProcessRpc = Rpc.make(WS_METHODS.serverSignalProcess, {
@@ -1417,6 +1441,9 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerGetUsageSummaryRpc,
   WsServerRefreshUsageRatesRpc,
   WsFourspacesRelocateWorkspaceRpc,
+  WsFourspacesGetOpenRouterUsageRpc,
+  WsFourspacesSetOpenRouterKeyRpc,
+  WsFourspacesClearOpenRouterKeyRpc,
   WsServerSignalProcessRpc,
   WsServerReportClientActivityRpc,
   WsServerReportHostPowerStateRpc,

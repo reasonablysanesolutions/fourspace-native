@@ -155,6 +155,11 @@ import * as AnalyticsService from "./telemetry/AnalyticsService.ts";
 import * as UsageLimitSources from "./usage/UsageLimitSources.ts";
 import * as UsageService from "./usage/UsageService.ts";
 import { relocateWorkspace } from "./fourspaces/relocateWorkspace.ts";
+import {
+  clearOpenRouterKey,
+  getOpenRouterUsage,
+  setOpenRouterKey,
+} from "./fourspaces/openrouterUsage.ts";
 import * as TraceDiagnostics from "./diagnostics/TraceDiagnostics.ts";
 import * as PullRequestService from "./pullRequest/PullRequestService.ts";
 import { listLinkedPullRequestThreads } from "./pullRequest/linkedThreads.ts";
@@ -2605,6 +2610,18 @@ const makeWsRpcLayer = (
           }),
         [WS_METHODS.fourspacesRelocateWorkspace]: (input) =>
           observeRpcEffect(WS_METHODS.fourspacesRelocateWorkspace, relocateWorkspace(input), {
+            "rpc.aggregate": "server",
+          }),
+        [WS_METHODS.fourspacesGetOpenRouterUsage]: (_input) =>
+          observeRpcEffect(WS_METHODS.fourspacesGetOpenRouterUsage, getOpenRouterUsage(), {
+            "rpc.aggregate": "server",
+          }),
+        [WS_METHODS.fourspacesSetOpenRouterKey]: (input) =>
+          observeRpcEffect(WS_METHODS.fourspacesSetOpenRouterKey, setOpenRouterKey(input.key), {
+            "rpc.aggregate": "server",
+          }),
+        [WS_METHODS.fourspacesClearOpenRouterKey]: (_input) =>
+          observeRpcEffect(WS_METHODS.fourspacesClearOpenRouterKey, clearOpenRouterKey(), {
             "rpc.aggregate": "server",
           }),
         [WS_METHODS.serverRetryResourceTelemetry]: (_input) =>

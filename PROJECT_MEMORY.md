@@ -27,6 +27,11 @@
 
 ## Recent meaningful changes
 
+- FAS 10 klar (2026-09-18): global usage-bar + OpenRouter analytics.
+  - UsageBar i rail-botten (alla vyer): Codex-pool % kvar + reset (samma pooled snapshots som Limits), Today $ + Cache % (samma summary-query som usage-sidan), OR $ idag. Klick → /usage. Estimat tydligt märkta; OR i USD.
+  - OpenRouter: kontrakt (status/windows/modeller, USD), server-tjänst (`/auth/key`+`/credits`+`/activity`, defensiv parsing, 5-min cache, nyckel i ServerSecretStore `fourspaces.openrouter_api_key`), 3 RPC:er (get=read, set/clear=operate), klient-atoms, settings-sektion (status, nyckelhantering, today/7d/30d, toppmodeller).
+  - Fällor (dyra lärdomar): tomma `Schema.Struct({})`-success kräver `{}`-retur (void ger TS2322→any-kaskad i bin/cli); osynkade RPC/auth/handler-maps ger TS7053→samma kaskad; Effect `yield* fn` utan anrop, `Date.now/new Date` förbjudet i Effect (Clock/DateTime, `makeUnsafe` i v4); python-str.replace ersätter ALLA förekomster (ws-duplikation — använd Edit-verktyget).
+  - Verifierat: bar-render med riktiga siffror, bogus-nyckel→fel+Remove→rensad (secret-fil borta), 0 pageerrors. tsc/lint/knip rena, 3+3 tester.
 - FAS 9 klar (2026-09-18): Promote — kind-byte + valfri flytt i From T3-fliken.
   - Delat: `selectOrganizedWorkspaces` (+test): klassificerade rader sorterade på root, även utan live-projekt.
   - Web: OrganizePanel fick Organized-sektion (checkbox + kind-radio + Move-toggle med destinationspreview; single Apply med job-snapshot före första await; fel samlas, framgång applyas radvis). Uns­orted-sektion oförändrad i beteende.

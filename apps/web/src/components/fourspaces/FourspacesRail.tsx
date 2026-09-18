@@ -23,6 +23,7 @@ import {
   selectActiveWorkspaceSpace,
   useFourspacesNavStore,
 } from "../../fourspaces/fourspacesNavStore";
+import { UsageBar } from "./UsageBar";
 
 interface RailItem {
   id: FourSpaceId;
@@ -147,6 +148,7 @@ export function FourspacesRail() {
           }}
         />
         <div className="flex-1" />
+        <UsageBar />
         <div aria-hidden className="mx-2 my-2 border-t border-sidebar-border" />
         <RailButton
           active={activeSpace === SETTINGS_ITEM.id}
