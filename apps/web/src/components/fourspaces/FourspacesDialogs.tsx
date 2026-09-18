@@ -1,5 +1,6 @@
 import { ImportWorkspaceDialog } from "./ImportWorkspaceDialog";
 import { NewWorkspaceDialog } from "./NewWorkspaceDialog";
+import { NotesDialog } from "./NotesDialog";
 import { useFourspacesUiStore } from "../../fourspaces/fourspacesUiStore";
 
 // Portal host for Four Spaces dialogs. Rendered once beside the app shell;
@@ -13,6 +14,16 @@ export function FourspacesDialogs() {
         key={`new:${dialog.space}:${dialog.originProductId ?? ""}`}
         initialSpace={dialog.space}
         originProductId={dialog.originProductId ?? null}
+      />
+    );
+  }
+  if (dialog.mode === "notes") {
+    if (!dialog.notesProject) return null;
+    const notesProject = dialog.notesProject;
+    return (
+      <NotesDialog
+        key={`notes:${notesProject.environmentId}:${notesProject.projectId}`}
+        project={notesProject}
       />
     );
   }

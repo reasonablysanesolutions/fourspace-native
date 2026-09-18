@@ -35,6 +35,10 @@
       "types": "./src/fourspaces/registry.ts",
       "default": "./src/fourspaces/registry.ts"
     },
+    "./fourspaces/notes": {
+      "types": "./src/fourspaces/notes.ts",
+      "default": "./src/fourspaces/notes.ts"
+    },
     "./fourspaces/relocate": {
       "types": "./src/fourspaces/relocate.ts",
       "default": "./src/fourspaces/relocate.ts"

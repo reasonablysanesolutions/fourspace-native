@@ -11,7 +11,7 @@ import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
-import { ChevronDownIcon } from "lucide-react";
+import { ChevronDownIcon, NotebookPenIcon } from "lucide-react";
 import {
   memo,
   useCallback,
@@ -47,6 +47,12 @@ import {
   WorkspaceBreadcrumbSeparator,
 } from "../WorkspaceBreadcrumb";
 import { cn } from "~/lib/utils";
+import { Button } from "../ui/button";
+import {
+  selectActiveWorkspaceSpace,
+  useFourspacesNavStore,
+} from "../../fourspaces/fourspacesNavStore";
+import { useFourspacesUiStore } from "../../fourspaces/fourspacesUiStore";
 
 interface ChatHeaderProps {
   activeThreadEnvironmentId: EnvironmentId;
@@ -158,6 +164,11 @@ export const ChatHeader = memo(function ChatHeader({
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const activeProjectName = activeProject?.title;
   const activeProjectCwd = activeProject?.workspaceRoot ?? null;
+  // Four Spaces notes: every workspace project gets notes except Chat, which
+  // has no notes by design. The file lives in the project, so classified and
+  // unclassified projects alike can keep them.
+  const activeWorkspaceSpace = useFourspacesNavStore(selectActiveWorkspaceSpace);
+  const openNotesDialog = useFourspacesUiStore((state) => state.openNotesDialog);
   const fileScripts = useT3ProjectFileScripts(
     activeThreadEnvironmentId,
     activeProjectScripts ? activeProjectCwd : null,
@@ -437,6 +448,31 @@ export const ChatHeader = memo(function ChatHeader({
             {...(draftId ? { draftId } : {})}
           />
         )}
+        {activeProject && activeWorkspaceSpace !== "chat" ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  aria-label="Workspace notes"
+                  size="icon-xs"
+                  type="button"
+                  variant="ghost"
+                  onClick={() =>
+                    openNotesDialog(activeWorkspaceSpace, {
+                      environmentId: activeProject.environmentId,
+                      projectId: activeProject.id,
+                      cwd: activeProject.workspaceRoot,
+                      title: activeProject.title,
+                    })
+                  }
+                />
+              }
+            >
+              <NotebookPenIcon className="size-4" />
+            </TooltipTrigger>
+            <TooltipPopup side="top">Workspace notes</TooltipPopup>
+          </Tooltip>
+        ) : null}
       </div>
     </div>
   );

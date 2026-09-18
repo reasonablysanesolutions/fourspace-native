@@ -27,6 +27,12 @@
 
 ## Recent meaningful changes
 
+- FAS 7 klar (2026-09-18): Notes — lugn editor över NOTES.md, ingen composer-kirurgi.
+  - Delat: `fourspaces/notes.ts` (+tester): filnamn, autosave-delay, missing-matcher, hasNotesFile (endast toppnivå).
+  - Web: `useWorkspaceNotes.ts` (read-once, härledd text utan adopt-effekt, debounce-autosave, missing via matcher ELLER listEntries-verifiering, mount-refresh mot stale cache, last-writer-wins), `NotesDialog.tsx` (textarea + save-state + Copy, ingen preview v1), header-knapp i ChatHeader (dold i Chat), ui-store mode + host.
+  - Skippat: composer-insert (agenten läser filen direkt), preview-toggle, Notes-flikar (med workspace-vyer).
+  - Fällor: serverns read-fel saknar missing-signal — därför listEntries-verifiering; read-cachen måste refreshas vid open; missing-status viker för lastSaved efter save.
+  - Verifierat: Edited→Saved-tid, persist över reopen, Chat utan knapp, 0 pageerrors. tsc/lint rena, 18 tester.
 - FAS 6 klar (2026-09-18): visuellt skal — endast yta, ingen funktionalitet.
   - Rail: temamedvetna accentfärger per space (sky/violet/emerald/amber/slate med dark:-varianter, repo-konvention), neutral text, aktiv pill oförändrad.
   - Scheduled: mer luft (gap/py). Dialoger/settings redan lugna (verifierade visuellt).
@@ -69,4 +75,4 @@
 
 1. NÄR ALLA FASER ÄR KLARA (användarens beslut 2026-09-18): skapa personlig GitHub-fork + remote + pusha. Tills dess: endast lokala commits, aldrig pusha till upstream.
 2. FAS 6: visuellt skal (spacing, typografi, ljusa ytor) — funktionellt klart under.
-3. FAS 7+: Notes (NOTES.md), Product→Experiment + PRODUCT_CONTEXT, Promote, usage-bar, Scheduled.
+3. FAS 7+: Product→Experiment + PRODUCT_CONTEXT, Promote, usage-bar, Scheduled.
