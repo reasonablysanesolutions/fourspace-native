@@ -47,6 +47,7 @@ import { applyAppearanceFontVariables } from "~/appearanceFonts";
 import { applyAppearanceContrast } from "~/appearanceContrast";
 import { useClientSettings } from "../hooks/useSettings";
 import { PlanAgentSelectionHeal } from "../planAgentSelectionHeal";
+import { useFourspacesNavStore } from "../fourspaces/fourspacesNavStore";
 import {
   deriveLogicalProjectKeyFromSettings,
   derivePhysicalProjectKeyFromPath,
@@ -514,6 +515,14 @@ function EventRouter({
       useUiStateStore.getState().setProjectExpanded(bootstrapProjectKey, true);
 
       if (readPathname() !== "/") {
+        return;
+      }
+      // Four Spaces: Chat owns "/" through its hidden backing project. The
+      // server bootstrap thread belongs to the cwd project, which the Chat
+      // space never shows — navigating there would land Chat on invisible
+      // content. Kind spaces keep the bootstrap (unclassified projects stay
+      // visible there until organized).
+      if (useFourspacesNavStore.getState().activeWorkspaceSpace === "chat") {
         return;
       }
       if (skipInitialBootstrapNavigationRef.current) {

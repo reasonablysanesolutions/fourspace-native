@@ -2,14 +2,11 @@
 
 ## Current state
 
-- `Fourspaces/` är nu en shallow-fork (`--depth 1`) av `pingdotgg/t3code` (commit `9ea9c3d5`), inte längre tom.
-- FAS 1-kartläggning klar (2026-09-18): navigation, projekt/tråd-modell, settings, modellväljare, usage, persistens.
-- Inga T3-core-ändringar gjorda ännu. Enda untracked-filer: `design.fourspaces-reference.png`, denna fil.
-- Standard-root skapad (tom): `/Volumes/Mr_Jones/T3/{Chat,Experiments,Projects,Products}/`.
-- Verktygskedja KLAR: isolerad Node v24.21.0 i `~/.local/node-t3` (rör ej användarens hermes-node 26 eller `/usr/local/bin/node` 24.11.1), `pnpm 11.10.0` via corepack, `vp 0.3.3`, `bun 1.4.2` via vp-shim. `vp i` körd OK.
-- `.env` med `T3CODE_DEV_AUTH_TOKEN` skapad (gitignored, mode 600).
-- Ren T3-dev verifierad 2026-09-18: `vp run dev` → web `:5733` svarade 200, server `:13773` lyssnade, pairing-URL utskriven; enda WARN var Claude-CLI health check (Claude CLI ej installerad — benignt). Servern stoppad rent via egna PID:n (78725 → barn 78736/78738 verifierade via cwd+ppid före kill).
-- Full git-historik hämtad (`git fetch --unshallow`); `origin` = `pingdotgg/t3code`, ingen personlig fork-remote ännu.
+- `Fourspaces/` är en personlig fork av `pingdotgg/t3code` (full historik; 2 egna commits på `main`, ej pushat).
+- FAS 1 (kartläggning) + FAS 2 (rail-nav + `/scheduled`) + FAS 3 (registry + filtrering + Chat-backing) klara och committade.
+- Inga T3-core-beteenden ändrade: providers, trådar, streaming, terminal, Git, checkpoints, settings, usage — allt återanvänt. Diffen är additiv: nya filer under `*/fourspaces/*` + små seams.
+- Standard-root i bruk: `/Volumes/Mr_Jones/T3/` (Chat/Experiments/Projects/Products/); Chat-backing auto-skapad på `/Volumes/Mr_Jones/T3/Chat`.
+- Verktygskedja: isolerad Node v24.21.0 (`~/.local/node-t3`), `pnpm 11.10.0`, `vp 0.3.3`, `bun 1.4.2`. `.env` med dev-token (gitignored).
 
 ## Architecture (T3, verifierat lokalt)
 
@@ -30,7 +27,13 @@
 
 ## Recent meaningful changes
 
-- FAS 2 klar (2026-09-18, commit `feat(web): ...`): permanent Four Spaces-rail i webklienten.
+- FAS 3 klar (2026-09-18): Workspace Registry som klient-side sidosystem (noll server/kontrakt-ändringar).
+  - Nytt: `packages/client-runtime/src/fourspaces/registry.ts` (+10 tester, export `./fourspaces/registry`): kinds experiment|project|product, entries {workspaceId, workspaceRoot, projectId?, kind, originProductId?}, defaultRoot (`~/T3`), chat-backing (`resolveChatProjectId`: lagrat id → exakt root → `T3/Chat`-tail vid default-root), `selectProjectsForSpace`/`selectVisibleProjects` (klassificerade endast i egen kind; oklassificerade synliga i kind-spaces så organisering aldrig döljer; Chat isolerad).
+  - Nytt web: `fourspacesRegistryStore.ts` (zustand+persist `t3code:fourspaces-registry:v1`, per env), `useSpaceFilteredProjects.ts` (hook + `useSpaceVisibleProjectKeys` + `intersectProjectKeySets`), DEV-only `window.__fourspacesRegistryStore` för smokes.
+  - Ändrat: `Sidebar.tsx` (filtrerad katalog + radfilter för trådar/drafts via intersect, scope bevaras; sökning ärver filtret), `LegacySidebar.tsx` (projektseam), `_chat.index.tsx` (space-scopad landing; Chat auto-skapar backing-projekt `<root>/Chat` via befintlig `project.create`, läker lagrat id), `__root.tsx` EventRouter (skippar bootstrap-nav i Chat), `FourspacesRail.tsx` (`flushSync` före navigate — annars startar landningen draft i förra spacets kontext), `spaces.ts` (kinds från registry).
+  - Fällor: `~/` expanderas av servern till absolut root (tail-heuristik krävs för adoption); rail-navigering vs landing-race; Playwright `addInitScript`-seed måste vara komplett upfront (körs om vid varje reload).
+  - Verifierat: 10/10 registry-tester, tsc (client-runtime+web) ren, lint 0 nya warnings, knip ren, headless-Chromium-smoke (Chat-autocreate på /Volumes/Mr_Jones/T3/Chat, filtrering per space, 0 pageerrors). Dev-state: Chat-projekt daced4ea aktiv; tom ~/T3/Chat-katalog bortstädad.
+- FAS 2 klar (2026-09-18, `28dd554dc`): permanent Four Spaces-rail i webklienten.
   - Nytt: `apps/web/src/fourspaces/spaces.ts` (space-ids + pathname-resolution; spaces är UI-dimension, tråd-URL:er orörda), `apps/web/src/fourspaces/fourspacesNavStore.ts` (zustand+persist `t3code:fourspaces-nav:v1`), `apps/web/src/components/fourspaces/FourspacesRail.tsx` (Chat/Experiment/Project/Product — Scheduled — Settings), `apps/web/src/routes/scheduled.tsx` (Upcoming/Recurring/History empty states; auth-guard som `_chat`).
   - Ändrat: `AppSidebarLayout.tsx` (+12 rader: renderar rail; `--fourspaces-rail-width: 13rem`; fixed thread-sidebar + flytande toggle skiftas höger på md+ via `md:group-data-[state=expanded]:left-...`), `routeTree.gen.ts` (autogenererad, plockade upp `/scheduled`).
   - Viktig implementationsfälla: desktop-sidebar är `fixed left-0`-overlay med in-flow gap-spacer — rail i flow täcks utan left-offset. Verifierat expanded/collapsed/reopened via Playwright (Chromium headless): rail synlig på `/`, `/scheduled`, `/settings/general`; nav + persist (`activeWorkspaceSpace`) OK; 0 pageerrors; `tsc` ren; `vp lint` 0 errors (1 pre-existerande warning i orörd fullscreen-effekt).
@@ -39,12 +42,12 @@
 
 ## Known issues
 
-- Shallow clone: bara 1 commit lokalt. Kör `git fetch --unshallow` + sätt egen `origin` innan egen historik skrivs.
-- Ingen `origin`/fork-remote konfigurerad ännu; inget committat.
-- `vp`/`bun`/`pnpm` saknas; Node-version fel (26 vs krav 24). `vp i` + `vp run dev` ej verifierade.
+- Ingen personlig fork-remote konfigurerad ännu (`origin` = `pingdotgg/t3code`); inget pushat.
+- `_chat.tsx` "new-thread-in"-palett räknar ofiltrerade projektgrupper (kosmetiskt; New-flöden i FAS 5 tar över skapande).
+- Dev-state (`~/.t3/dev`) innehåller smoke-artefakter: Chat-projekt c99abe5e (pakar mot borttagen ~/T3/Chat) + daced4ea (aktiv, /Volumes/Mr_Jones/T3/Chat) + server-projekt. Ofarligt scratch; påverkar repo-kod inte.
 
 ## Next steps
 
 1. Sätt personlig fork-remote (egen GitHub-fork) om upstream-pull ska vara smidig.
-2. FAS 3: Workspace Registry som sidosystem (rekommendation från kartläggning: ny SQLite-sidotabell `fourspaces_workspaces` ELLER `<stateDir>/fourspaces.json` via JSON+Cache+PubSub-service; ALDRIG nya fält i `OrchestrationProject`) + sidebar-filtrering per space via `activeWorkspaceSpace`.
-3. FAS 4: Import (Keep in place först) — registrera befintlig katalog som T3-project (`project.create`) + registry-rad; Move/Copy via filesystem-operation före registrering.
+2. FAS 4: Import — dialog (New / Import existing…) per space; Keep in place (registrera: `findExistingAddProject` → ev. `project.create` + registry-rad), Move/Copy; Import from T3 (batch-klassificera osorterade, inkl. "12 existing workspaces"-prompt).
+3. FAS 5: standard roots + New-flöden (Chat/Experiments/Projects/Products under defaultRoot) + Four Spaces settings-sektion (defaultRoot).

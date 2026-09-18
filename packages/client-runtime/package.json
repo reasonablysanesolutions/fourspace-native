@@ -31,6 +31,10 @@
       "types": "./src/environment/index.ts",
       "default": "./src/environment/index.ts"
     },
+    "./fourspaces/registry": {
+      "types": "./src/fourspaces/registry.ts",
+      "default": "./src/fourspaces/registry.ts"
+    },
     "./markdown-images": {
       "types": "./src/markdownImages.ts",
       "default": "./src/markdownImages.ts"

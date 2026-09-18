@@ -1,5 +1,13 @@
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
+import {
+  chatWorkspaceRootFor,
+  emptyEnvironmentState,
+  resolveChatProjectId,
+  resolveDefaultRoot,
+  selectVisibleProjects,
+} from "@t3tools/client-runtime/fourspaces/registry";
+import { ProjectId } from "@t3tools/contracts";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { LinkIcon, PlusIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -12,13 +20,24 @@ import { Button } from "../components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "../components/ui/empty";
 import { SidebarInset } from "../components/ui/sidebar";
 import { WorkspacePageHeader } from "../components/WorkspacePageHeader";
+import {
+  selectActiveWorkspaceSpace,
+  useFourspacesNavStore,
+} from "../fourspaces/fourspacesNavStore";
+import {
+  selectEnvironmentRegistry,
+  useFourspacesRegistryStore,
+} from "../fourspaces/fourspacesRegistryStore";
 import { useNewThreadHandler } from "../hooks/useHandleNewThread";
+import { newProjectId } from "../lib/utils";
 import {
   useAllEnvironmentShellsBootstrapped,
   useProjects,
   useThreadShells,
 } from "../state/entities";
-import { useEnvironments } from "../state/environments";
+import { useEnvironments, usePrimaryEnvironmentId } from "../state/environments";
+import { projectEnvironment } from "../state/projects";
+import { useAtomCommand } from "../state/use-atom-command";
 import { APP_DISPLAY_NAME } from "~/branding";
 import { hasCloudPublicConfig } from "~/cloud/publicConfig";
 
@@ -38,40 +57,135 @@ function ChatIndexRouteView() {
  * Landing on the index route drops straight into a draft thread for the most
  * recently active project, so the first screen is a prompt instead of a dead
  * end. Falls back to an add-project hero when no project exists yet.
+ *
+ * Four Spaces scopes the landing to the active workspace: kind spaces pick
+ * the most recent visible project (classified + unclassified, never the Chat
+ * backing project), while Chat resolves its hidden backing project and
+ * creates it under the Four Spaces root on first visit.
  */
 function IndexDraftLanding() {
+  const space = useFourspacesNavStore(selectActiveWorkspaceSpace);
   const projects = useProjects();
   const threads = useThreadShells();
   const bootstrapped = useAllEnvironmentShellsBootstrapped();
   const handleNewThread = useNewThreadHandler();
-  const startingRef = useRef(false);
+  const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const registryStore = useFourspacesRegistryStore();
+  const setChatProjectId = registryStore.setChatProjectId;
+  const createProject = useAtomCommand(projectEnvironment.create, { reportFailure: false });
+  const startKeyRef = useRef<string | null>(null);
   const [startState, setStartState] = useState({ failed: false, retryRequest: 0 });
+
+  const registryState = useMemo(
+    () =>
+      primaryEnvironmentId
+        ? selectEnvironmentRegistry(registryStore, primaryEnvironmentId)
+        : emptyEnvironmentState(),
+    [primaryEnvironmentId, registryStore],
+  );
+
+  const chatProjectId = useMemo(
+    () =>
+      space === "chat" && primaryEnvironmentId
+        ? resolveChatProjectId({
+            projects,
+            environmentId: primaryEnvironmentId,
+            state: registryState,
+          })
+        : null,
+    [space, projects, primaryEnvironmentId, registryState],
+  );
 
   const mostRecentProject = useMemo(
     () =>
       bootstrapped
-        ? (sortScopedProjectsForSidebar(projects, threads, "updated_at")[0] ?? null)
+        ? (sortScopedProjectsForSidebar(
+            space === "chat"
+              ? []
+              : selectVisibleProjects(projects, registryStore.registriesByEnvironment, space),
+            threads,
+            "updated_at",
+          )[0] ?? null)
         : null,
-    [bootstrapped, projects, threads],
+    [bootstrapped, projects, registryStore.registriesByEnvironment, space, threads],
   );
 
+  // Start target: the resolved chat project (or a pending create), else the
+  // most recent visible project. Null renders the hero / spinner states below.
+  const startTarget =
+    space === "chat"
+      ? primaryEnvironmentId && chatProjectId
+        ? scopeProjectRef(primaryEnvironmentId, ProjectId.make(chatProjectId))
+        : null
+      : mostRecentProject
+        ? scopeProjectRef(mostRecentProject.environmentId, mostRecentProject.id)
+        : null;
+  const startKey = `${space}:${startTarget ? `${startTarget.environmentId}:${startTarget.projectId}` : "none"}:${startState.retryRequest}`;
+
   useEffect(() => {
-    if (mostRecentProject === null || startingRef.current) {
+    if (!bootstrapped || startKeyRef.current === startKey) {
       return;
     }
-    startingRef.current = true;
-    void handleNewThread(scopeProjectRef(mostRecentProject.environmentId, mostRecentProject.id), {
+    // Nothing to start yet: the Chat backing project is created below, and
+    // an empty kind space falls through to the hero.
+    if (space === "chat" && startTarget === null && primaryEnvironmentId !== null) {
+      startKeyRef.current = startKey;
+      void (async () => {
+        const projectId = newProjectId();
+        const created = await createProject({
+          environmentId: primaryEnvironmentId,
+          input: {
+            projectId,
+            title: "Chat",
+            workspaceRoot: chatWorkspaceRootFor(resolveDefaultRoot(registryState)),
+            createWorkspaceRootIfMissing: true,
+            defaultModelSelection: null,
+          },
+        });
+        if (created._tag === "Failure") {
+          startKeyRef.current = null;
+          setStartState((state) => ({ ...state, failed: true }));
+          return;
+        }
+        setChatProjectId(primaryEnvironmentId, projectId);
+      })().catch(() => {
+        startKeyRef.current = null;
+        setStartState((state) => ({ ...state, failed: true }));
+      });
+      return;
+    }
+    if (startTarget === null) {
+      return;
+    }
+    startKeyRef.current = startKey;
+    // Heal the stored id when the backing project was adopted by root
+    // instead of by stored id (same value → no-op, no render loop).
+    if (space === "chat" && chatProjectId && registryState.chatProjectId !== chatProjectId) {
+      setChatProjectId(primaryEnvironmentId!, chatProjectId);
+    }
+    void handleNewThread(startTarget, {
       replace: true,
     }).catch(() => {
-      startingRef.current = false;
+      startKeyRef.current = null;
       setStartState((state) => ({ ...state, failed: true }));
     });
-  }, [handleNewThread, mostRecentProject, startState.retryRequest]);
+  }, [
+    bootstrapped,
+    chatProjectId,
+    createProject,
+    handleNewThread,
+    primaryEnvironmentId,
+    registryState,
+    setChatProjectId,
+    space,
+    startKey,
+    startTarget,
+  ]);
 
   if (!bootstrapped) {
     return null;
   }
-  if (mostRecentProject !== null) {
+  if (startTarget !== null || (space === "chat" && primaryEnvironmentId !== null)) {
     return startState.failed ? (
       <DraftStartError
         onRetry={() => {

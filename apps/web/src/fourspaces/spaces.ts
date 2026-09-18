@@ -1,10 +1,11 @@
 // Four Spaces shell: the workspace kinds Four Spaces organizes. Kept separate
 // from T3's core project model on purpose — classification lives in a small
 // side system (registry), never inside OrchestrationProject.
+import type { FourSpaceKind } from "@t3tools/client-runtime/fourspaces/registry";
 
 export const FOURSPACE_WORKSPACE_IDS = ["chat", "experiment", "project", "product"] as const;
 
-export type FourSpaceWorkspaceId = (typeof FOURSPACE_WORKSPACE_IDS)[number];
+export type FourSpaceWorkspaceId = FourSpaceKind | "chat";
 
 export type FourSpaceId = FourSpaceWorkspaceId | "scheduled" | "settings";
 

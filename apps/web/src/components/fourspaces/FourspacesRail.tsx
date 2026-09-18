@@ -8,6 +8,7 @@ import {
   SettingsIcon,
 } from "lucide-react";
 import type { ComponentType } from "react";
+import { flushSync } from "react-dom";
 
 import { isElectron } from "../../env";
 import { cn } from "../../lib/utils";
@@ -104,7 +105,12 @@ export function FourspacesRail() {
             key={item.id}
             label={FOURSPACE_LABELS[item.id]}
             onClick={() => {
-              setActiveWorkspaceSpace(item.id);
+              // Flush the space switch synchronously: the landing route reads
+              // the active space on mount, and navigating first would start a
+              // draft in the previous space's context.
+              flushSync(() => {
+                setActiveWorkspaceSpace(item.id);
+              });
               if (pathname !== "/") {
                 void navigate({ to: "/" });
               }

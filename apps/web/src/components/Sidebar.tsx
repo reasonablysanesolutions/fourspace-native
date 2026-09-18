@@ -127,9 +127,13 @@ import { useEnvironments, usePrimaryEnvironmentId } from "../state/environments"
 import {
   readThreadShell,
   useAllEnvironmentProjectSnapshotsReady,
-  useProjects,
   useThreadShells,
 } from "../state/entities";
+import {
+  intersectProjectKeySets,
+  useSpaceFilteredProjects,
+  useSpaceVisibleProjectKeys,
+} from "../fourspaces/useSpaceFilteredProjects";
 import { environmentServerConfigsAtom, primaryServerKeybindingsAtom } from "../state/server";
 import { vcsEnvironment } from "../state/vcs";
 import { threadEnvironment } from "../state/threads";
@@ -2129,7 +2133,10 @@ const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props: {
 });
 
 export default function Sidebar() {
-  const projects = useProjects();
+  // Four Spaces filters the catalog by workspace: classified projects show
+  // only in their own kind, Chat shows only its backing project. Everything
+  // downstream (groups, rows, counts) stays consistent from this one seam.
+  const projects = useSpaceFilteredProjects();
   const projectOrder = useUiStateStore((store) => store.projectOrder);
   const threads = useThreadShells();
   const router = useRouter();
@@ -2420,6 +2427,14 @@ export default function Sidebar() {
           ),
     [scopedProjectGroup],
   );
+  // Four Spaces intersects the project scope: thread and draft rows for
+  // projects outside the active workspace never render, select, or count.
+  // The scope itself is left alone so switching spaces never clears it.
+  const spaceVisibleProjectKeys = useSpaceVisibleProjectKeys();
+  const rowVisibleProjectKeys = useMemo(
+    () => intersectProjectKeySets(scopedProjectKeys, spaceVisibleProjectKeys),
+    [scopedProjectKeys, spaceVisibleProjectKeys],
+  );
   // A persisted scope whose project is gone falls back to all projects, but
   // only after every catalog environment has a live project snapshot. Cached
   // or disconnected environments cannot establish that the project is gone.
@@ -2446,8 +2461,8 @@ export default function Sidebar() {
         continue;
       }
       if (
-        scopedProjectKeys !== null &&
-        !scopedProjectKeys.has(`${session.environmentId}:${session.projectId}`)
+        rowVisibleProjectKeys !== null &&
+        !rowVisibleProjectKeys.has(`${session.environmentId}:${session.projectId}`)
       ) {
         continue;
       }
@@ -2528,8 +2543,8 @@ export default function Sidebar() {
     const visible = threads.filter(
       (thread) =>
         thread.archivedAt === null &&
-        (scopedProjectKeys === null ||
-          scopedProjectKeys.has(`${thread.environmentId}:${thread.projectId}`)),
+        (rowVisibleProjectKeys === null ||
+          rowVisibleProjectKeys.has(`${thread.environmentId}:${thread.projectId}`)),
     );
     const pinned: EnvironmentThreadShell[] = [];
     const active: EnvironmentThreadShell[] = [];
@@ -2615,7 +2630,7 @@ export default function Sidebar() {
       settledThreads: sortSettledThreadsForSidebar(settled),
       snoozeNow: preciseNow,
     };
-  }, [nowMinute, optimisticDrop, scopedProjectKeys, serverConfigs, snoozeWakeTick, threads]);
+  }, [nowMinute, optimisticDrop, rowVisibleProjectKeys, serverConfigs, snoozeWakeTick, threads]);
 
   const threadSearchInputRef = useRef<HTMLInputElement>(null);
   const [threadSearchQuery, setThreadSearchQuery] = useState("");
@@ -4774,7 +4789,7 @@ export default function Sidebar() {
                           key="draft-sessions"
                           projectByKey={projectByKey}
                           projectDisplayNameByKey={projectDisplayNameByKey}
-                          scopedProjectKeys={scopedProjectKeys}
+                          scopedProjectKeys={rowVisibleProjectKeys}
                           routeDraftId={routeDraftIdForRows}
                           onNavigateToDraft={navigateToDraft}
                         />,
