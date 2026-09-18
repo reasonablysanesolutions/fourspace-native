@@ -154,6 +154,7 @@ import * as HostResources from "./resourceTelemetry/HostResources.ts";
 import * as AnalyticsService from "./telemetry/AnalyticsService.ts";
 import * as UsageLimitSources from "./usage/UsageLimitSources.ts";
 import * as UsageService from "./usage/UsageService.ts";
+import { relocateWorkspace } from "./fourspaces/relocateWorkspace.ts";
 import * as TraceDiagnostics from "./diagnostics/TraceDiagnostics.ts";
 import * as PullRequestService from "./pullRequest/PullRequestService.ts";
 import { listLinkedPullRequestThreads } from "./pullRequest/linkedThreads.ts";
@@ -2600,6 +2601,10 @@ const makeWsRpcLayer = (
           }),
         [WS_METHODS.serverRefreshUsageRates]: (_input) =>
           observeRpcEffect(WS_METHODS.serverRefreshUsageRates, usage.refreshRates, {
+            "rpc.aggregate": "server",
+          }),
+        [WS_METHODS.fourspacesRelocateWorkspace]: (input) =>
+          observeRpcEffect(WS_METHODS.fourspacesRelocateWorkspace, relocateWorkspace(input), {
             "rpc.aggregate": "server",
           }),
         [WS_METHODS.serverRetryResourceTelemetry]: (_input) =>

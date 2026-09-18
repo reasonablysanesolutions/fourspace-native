@@ -127,6 +127,7 @@ import { useEnvironments, usePrimaryEnvironmentId } from "../state/environments"
 import {
   readThreadShell,
   useAllEnvironmentProjectSnapshotsReady,
+  useProjects,
   useThreadShells,
 } from "../state/entities";
 import {
@@ -134,6 +135,17 @@ import {
   useSpaceFilteredProjects,
   useSpaceVisibleProjectKeys,
 } from "../fourspaces/useSpaceFilteredProjects";
+import {
+  selectActiveWorkspaceSpace,
+  useFourspacesNavStore,
+} from "../fourspaces/fourspacesNavStore";
+import { useFourspacesUiStore } from "../fourspaces/fourspacesUiStore";
+import { useFourspacesRegistryStore } from "../fourspaces/fourspacesRegistryStore";
+import {
+  readEnvironmentState,
+  sanitizeRegistry,
+  selectUnsortedProjects,
+} from "@t3tools/client-runtime/fourspaces/registry";
 import { environmentServerConfigsAtom, primaryServerKeybindingsAtom } from "../state/server";
 import { vcsEnvironment } from "../state/vcs";
 import { threadEnvironment } from "../state/threads";
@@ -2137,6 +2149,8 @@ export default function Sidebar() {
   // only in their own kind, Chat shows only its backing project. Everything
   // downstream (groups, rows, counts) stays consistent from this one seam.
   const projects = useSpaceFilteredProjects();
+  const activeWorkspaceSpace = useFourspacesNavStore(selectActiveWorkspaceSpace);
+  const openImportWorkspaceDialog = useFourspacesUiStore((state) => state.openImportDialog);
   const projectOrder = useUiStateStore((store) => store.projectOrder);
   const threads = useThreadShells();
   const router = useRouter();
@@ -2444,6 +2458,41 @@ export default function Sidebar() {
       setProjectScopeKey(null);
     }
   }, [allProjectSnapshotsReady, projectScopeKey, scopedProjectGroup, setProjectScopeKey]);
+  // First-run organize offer: once per environment, when T3 workspaces exist
+  // that Four Spaces never classified, offer to organize them now. Fires at
+  // most once ever (persisted flag) and never for empty catalogs.
+  const allProjects = useProjects();
+  const registriesByEnvironment = useFourspacesRegistryStore(
+    (state) => state.registriesByEnvironment,
+  );
+  const organizePromptShown = useFourspacesNavStore((state) =>
+    primaryEnvironmentId
+      ? (state.organizePromptShownByEnvironment[primaryEnvironmentId] ?? false)
+      : true,
+  );
+  const markOrganizePromptShown = useFourspacesNavStore((state) => state.markOrganizePromptShown);
+  const openOrganizeDialog = useFourspacesUiStore((state) => state.openOrganizeDialog);
+  useEffect(() => {
+    if (!allProjectSnapshotsReady || !primaryEnvironmentId || organizePromptShown) return;
+    const registryState = readEnvironmentState(
+      sanitizeRegistry(registriesByEnvironment),
+      primaryEnvironmentId,
+    );
+    markOrganizePromptShown(primaryEnvironmentId);
+    if (registryState.entries.length > 0) return;
+    const unsorted = selectUnsortedProjects(allProjects, primaryEnvironmentId, registryState);
+    if (unsorted.length === 0) return;
+    openOrganizeDialog(activeWorkspaceSpace);
+  }, [
+    activeWorkspaceSpace,
+    allProjects,
+    allProjectSnapshotsReady,
+    markOrganizePromptShown,
+    openOrganizeDialog,
+    organizePromptShown,
+    primaryEnvironmentId,
+    registriesByEnvironment,
+  ]);
   // Count-only subscription: the parent needs "are there draft rows" for the
   // empty state, while SidebarDraftBlock owns the per-keystroke content
   // subscription. Selecting a number keeps typing in a draft composer from
@@ -4547,6 +4596,11 @@ export default function Sidebar() {
                 </Combobox>
               }
               onNewProject={openAddProjectCommandPalette}
+              onImportWorkspace={
+                activeWorkspaceSpace === "chat"
+                  ? null
+                  : () => openImportWorkspaceDialog(activeWorkspaceSpace)
+              }
               onNewThread={handleNewThreadClick}
               newThreadDisabled={projects.length === 0}
               newThreadShortcutLabel={newThreadShortcutLabel}

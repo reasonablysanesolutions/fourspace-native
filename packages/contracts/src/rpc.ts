@@ -29,6 +29,11 @@ import {
   FilesystemBrowseError,
 } from "./filesystem.ts";
 import {
+  RelocateWorkspaceError,
+  RelocateWorkspaceInput,
+  RelocateWorkspaceResult,
+} from "./fourspaces.ts";
+import {
   AgentSessionImportInput,
   AgentSessionImportProjectChangedError,
   AgentSessionImportProjectNotFoundError,
@@ -381,6 +386,7 @@ export const WS_METHODS = {
   serverGetBackgroundPolicy: "server.getBackgroundPolicy",
   serverGetUsageSummary: "server.getUsageSummary",
   serverRefreshUsageRates: "server.refreshUsageRates",
+  fourspacesRelocateWorkspace: "fourspaces.relocateWorkspace",
 
   // Cloud environment methods
   cloudGetRelayClientStatus: "cloud.getRelayClientStatus",
@@ -641,6 +647,12 @@ const WsServerRefreshUsageRatesRpc = Rpc.make(WS_METHODS.serverRefreshUsageRates
   payload: Schema.Struct({}),
   success: UsagePricing,
   error: EnvironmentAuthorizationError,
+});
+
+const WsFourspacesRelocateWorkspaceRpc = Rpc.make(WS_METHODS.fourspacesRelocateWorkspace, {
+  payload: RelocateWorkspaceInput,
+  success: RelocateWorkspaceResult,
+  error: Schema.Union([RelocateWorkspaceError, EnvironmentAuthorizationError]),
 });
 
 const WsServerSignalProcessRpc = Rpc.make(WS_METHODS.serverSignalProcess, {
@@ -1404,6 +1416,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerRetryResourceTelemetryRpc,
   WsServerGetUsageSummaryRpc,
   WsServerRefreshUsageRatesRpc,
+  WsFourspacesRelocateWorkspaceRpc,
   WsServerSignalProcessRpc,
   WsServerReportClientActivityRpc,
   WsServerReportHostPowerStateRpc,

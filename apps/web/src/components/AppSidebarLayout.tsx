@@ -26,6 +26,7 @@ import {
 } from "../panelAnimations";
 import LegacyThreadSidebar from "./LegacySidebar";
 import ThreadSidebar from "./Sidebar";
+import { FourspacesDialogs } from "./fourspaces/FourspacesDialogs";
 import { FourspacesRail } from "./fourspaces/FourspacesRail";
 import { SettingsSidebarNav } from "./settings/SettingsSidebarNav";
 import { SidebarChromeHeader } from "./sidebar/SidebarChrome";
@@ -279,6 +280,7 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
         </Sidebar>
         {children}
         <SidebarControl />
+        <FourspacesDialogs />
       </SidebarProvider>
     </PanelAnimationSuppressionProvider>
   );

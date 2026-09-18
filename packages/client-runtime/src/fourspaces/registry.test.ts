@@ -14,6 +14,7 @@ import {
   sanitizeEnvironmentState,
   sanitizeRegistry,
   selectProjectsForSpace,
+  selectUnsortedProjects,
   selectVisibleProjects,
   setChatProjectId,
   setDefaultRoot,
@@ -205,6 +206,37 @@ describe("fourspaces registry", () => {
       "p2",
     ]);
     expect(selectVisibleProjects(projects, registry, "chat")).toEqual([]);
+  });
+
+  it("lists unsorted projects excluding classified and chat projects", () => {
+    const projects = [
+      project("p-exp", "/work/exp"),
+      project("p-new", "/work/new"),
+      project("p-chat", "/Users/me/T3/Chat"),
+    ];
+    const state: FourSpacesEnvironmentState = {
+      ...emptyEnvironmentState(),
+      defaultRoot: "/Users/me/T3",
+      chatProjectId: "p-chat",
+    };
+    const classified = upsertWorkspaceEntry(
+      state,
+      entry({
+        workspaceId: "w-exp",
+        workspaceRoot: "/work/exp",
+        projectId: "p-exp",
+        kind: "experiment",
+      }),
+    );
+    expect(
+      selectUnsortedProjects(projects, environmentId, classified).map((item) => item.id),
+    ).toEqual(["p-new"]);
+    // Without classification everything but the adopted chat project is unsorted.
+    expect(
+      selectUnsortedProjects(projects, environmentId, emptyEnvironmentState()).map(
+        (item) => item.id,
+      ),
+    ).toEqual(["p-exp", "p-new"]);
   });
 
   it("reads per-environment registries and honors default root overrides", () => {

@@ -27,6 +27,13 @@
 
 ## Recent meaningful changes
 
+- FAS 4 klar (2026-09-18): Import (Keep/Move/Copy) + Import from T3. Första backend-slicen: `fourspaces.relocateWorkspace`-RPC.
+  - Kontrakt: `packages/contracts/src/fourspaces.ts` (mode/input/result/typade fel) + metod + Rpc + grupp. Server: `apps/server/src/fourspaces/relocateWorkspace.ts` (+3 tester): källa måste vara katalog, dest får ej finnas, aldrig in i sig själv; move = rename med copy+delete-fallback över volymgränser (upptäckt via smoke: /tmp→extern disk ger EXDEV); `~` expanderas som project creation. Handler i `ws.ts` (5 rader) + Operate-scope.
+  - Klient: `fourspaces/relocate.ts` (rena namnregler + tester), `state/fourspaces.ts`-atoms (serial per env), web-wrapper.
+  - Web: `ImportWorkspaceDialog.tsx` (Import folder: env, path + native picker/server-browse, kind, Keep/Move/Copy, folder-namn + preview; From T3: osorterade + kind per rad + batch), `FourspacesDialogs`-host, header-knapp (dold i Chat), auto-prompt en gång per env, import avslutas med space-byte + ny tråd.
+  - Registrering återanvänder T3: Keep = findExisting/create + rad; Move med projekt = `project.meta.update` (identitet bevaras); övrigt create + rad.
+  - Fällor: toast har också role=dialog (skopa selektorer!); pairing kräver redirect-väntan; addInitScript körs om vid reload; browser.close i finally; dev-only HMR-omevaluering kan nollställa session-dialog (prod opåverkat). LegacySidebar utan import-knapp.
+  - Verifierat: alla tsc rena; 14+3 tester; lint/knip utan nya; smoke: Keep (checksummor+.git intakta), Move (innehåll+DB-root), Copy (identiskt, original kvar), organize-apply, auto-tråd ("What should we build in KeepMe?"), 0 pageerrors.
 - FAS 3 klar (2026-09-18): Workspace Registry som klient-side sidosystem (noll server/kontrakt-ändringar).
   - Nytt: `packages/client-runtime/src/fourspaces/registry.ts` (+10 tester, export `./fourspaces/registry`): kinds experiment|project|product, entries {workspaceId, workspaceRoot, projectId?, kind, originProductId?}, defaultRoot (`~/T3`), chat-backing (`resolveChatProjectId`: lagrat id → exakt root → `T3/Chat`-tail vid default-root), `selectProjectsForSpace`/`selectVisibleProjects` (klassificerade endast i egen kind; oklassificerade synliga i kind-spaces så organisering aldrig döljer; Chat isolerad).
   - Nytt web: `fourspacesRegistryStore.ts` (zustand+persist `t3code:fourspaces-registry:v1`, per env), `useSpaceFilteredProjects.ts` (hook + `useSpaceVisibleProjectKeys` + `intersectProjectKeySets`), DEV-only `window.__fourspacesRegistryStore` för smokes.
@@ -49,5 +56,5 @@
 ## Next steps
 
 1. Sätt personlig fork-remote (egen GitHub-fork) om upstream-pull ska vara smidig.
-2. FAS 4: Import — dialog (New / Import existing…) per space; Keep in place (registrera: `findExistingAddProject` → ev. `project.create` + registry-rad), Move/Copy; Import from T3 (batch-klassificera osorterade, inkl. "12 existing workspaces"-prompt).
-3. FAS 5: standard roots + New-flöden (Chat/Experiments/Projects/Products under defaultRoot) + Four Spaces settings-sektion (defaultRoot).
+2. FAS 5: standard roots + New-flöden (New Experiment/Project/Product under defaultRoot med auto-namn) + Four Spaces settings-sektion (defaultRoot).
+3. FAS 6: visuellt skal (spacing, typografi, ljusa ytor) — funktionellt klart under.

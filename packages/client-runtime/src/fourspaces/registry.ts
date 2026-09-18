@@ -298,3 +298,24 @@ export function selectVisibleProjects<T extends SpaceProject>(
   }
   return visible;
 }
+
+/**
+ * Projects with no classification in an environment (excluding the Chat
+ * backing project): the "unsorted workspaces" the organize flow offers to
+ * classify. Sorted by title for stable dialog lists.
+ */
+export function selectUnsortedProjects<T extends SpaceProject>(
+  projects: ReadonlyArray<T>,
+  environmentId: EnvironmentId,
+  state: FourSpacesEnvironmentState,
+): T[] {
+  const chatProjectId = resolveChatProjectId({ projects, environmentId, state });
+  return [...projects]
+    .filter(
+      (project) =>
+        project.environmentId === environmentId &&
+        project.id !== chatProjectId &&
+        findWorkspaceEntry(state, project) === null,
+    )
+    .sort((left, right) => left.workspaceRoot.localeCompare(right.workspaceRoot));
+}

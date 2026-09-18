@@ -35,6 +35,14 @@
       "types": "./src/fourspaces/registry.ts",
       "default": "./src/fourspaces/registry.ts"
     },
+    "./fourspaces/relocate": {
+      "types": "./src/fourspaces/relocate.ts",
+      "default": "./src/fourspaces/relocate.ts"
+    },
+    "./fourspaces/state": {
+      "types": "./src/state/fourspaces.ts",
+      "default": "./src/state/fourspaces.ts"
+    },
     "./markdown-images": {
       "types": "./src/markdownImages.ts",
       "default": "./src/markdownImages.ts"
