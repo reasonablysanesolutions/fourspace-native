@@ -26,6 +26,7 @@ import {
 } from "../panelAnimations";
 import LegacyThreadSidebar from "./LegacySidebar";
 import ThreadSidebar from "./Sidebar";
+import { FourspacesRail } from "./fourspaces/FourspacesRail";
 import { SettingsSidebarNav } from "./settings/SettingsSidebarNav";
 import { SidebarChromeHeader } from "./sidebar/SidebarChrome";
 import {
@@ -118,7 +119,7 @@ function SidebarControl() {
     // the panel), so the trigger mirrors it: both clusters sit one extra pixel
     // off their edge and the titlebar reads symmetric.
     <div
-      className="pointer-events-none fixed left-[var(--workspace-controls-left)] top-[var(--workspace-controls-top)] z-50 ml-px flex h-[var(--workspace-topbar-height)] items-center"
+      className="pointer-events-none fixed left-[var(--workspace-controls-left)] top-[var(--workspace-controls-top)] z-50 ml-px flex h-[var(--workspace-topbar-height)] items-center md:left-[calc(var(--workspace-controls-left)+var(--fourspaces-rail-width))]"
       data-sidebar-control=""
     >
       <Tooltip>
@@ -189,6 +190,11 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
   const sidebarProviderStyle = {
     "--sidebar-width": `${sidebarWidth}px`,
     "--panel-animation-duration": `${panelAnimationDurationMs}ms`,
+    // Four Spaces rail width. Must match the rail's w-52. The desktop
+    // thread sidebar is a fixed overlay anchored at left-0, so it and the
+    // floating sidebar toggle are shifted right by this amount on md+ (where
+    // the rail renders) instead of covering the rail.
+    "--fourspaces-rail-width": "13rem",
     ...(isMacosDesktop && !isWindowFullscreen
       ? { "--workspace-controls-left": MACOS_TRAFFIC_LIGHTS_LEFT_INSET }
       : {}),
@@ -240,11 +246,15 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
         style={sidebarProviderStyle}
       >
         <ProjectProjectionRetention />
+        {/* Four Spaces rail: permanent left navigation. The thread sidebar
+            stays untouched beside it, so upstream sidebar behavior is
+            preserved and the rail only adds the space dimension. */}
+        <FourspacesRail />
         <Sidebar
           side="left"
           collapsible="offcanvas"
           data-app-sidebar=""
-          className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
+          className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:group-data-[state=expanded]:left-[var(--fourspaces-rail-width)]"
           resizable={{
             maxWidth: sidebarMaximumWidth,
             minWidth: THREAD_SIDEBAR_MIN_WIDTH,
