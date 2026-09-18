@@ -270,6 +270,52 @@ export function resolveChatProjectId(input: {
     )?.id ?? null
   );
 }
+/**
+ * Display title of the product an experiment was created from ("From:
+ * Plocka"), or null when the experiment has no resolvable origin. Resolves
+ * through the origin entry's linked project first, then its root.
+ */
+export function resolveOriginProductTitle<T extends SpaceProject & { readonly title: string }>(
+  projects: ReadonlyArray<T>,
+  state: FourSpacesEnvironmentState,
+  ref: WorkspaceRef,
+): string | null {
+  const entry = findWorkspaceEntry(state, ref);
+  if (!entry?.originProductId) return null;
+  const origin = state.entries.find((item) => item.workspaceId === entry.originProductId);
+  if (!origin) return null;
+  const byProject =
+    origin.projectId != null
+      ? (projects.find((project) => project.id === origin.projectId) ?? null)
+      : null;
+  if (byProject) return byProject.title;
+  const root = normalizeProjectPathForComparison(origin.workspaceRoot);
+  return (
+    projects.find((project) => normalizeProjectPathForComparison(project.workspaceRoot) === root)
+      ?.title ?? null
+  );
+}
+
+/** The origin product's project record, for opening overviews and notes. */
+export function resolveOriginProductRef<T extends SpaceProject & { readonly title: string }>(
+  projects: ReadonlyArray<T>,
+  state: FourSpacesEnvironmentState,
+  ref: WorkspaceRef,
+): T | null {
+  const entry = findWorkspaceEntry(state, ref);
+  if (!entry?.originProductId) return null;
+  const origin = state.entries.find((item) => item.workspaceId === entry.originProductId);
+  if (!origin) return null;
+  if (origin.projectId != null) {
+    const byProject = projects.find((project) => project.id === origin.projectId);
+    if (byProject) return byProject;
+  }
+  const root = normalizeProjectPathForComparison(origin.workspaceRoot);
+  return (
+    projects.find((project) => normalizeProjectPathForComparison(project.workspaceRoot) === root) ??
+    null
+  );
+}
 
 /** "chat" for the backing project, the entry kind, or null when unsorted. */
 export function resolveProjectSpace(

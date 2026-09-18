@@ -18,6 +18,7 @@ import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
+import type { EnvironmentId } from "@t3tools/contracts";
 import { useRef, useState } from "react";
 
 import { Button } from "../ui/button";
@@ -45,6 +46,12 @@ import { useProjects } from "../../state/entities";
 import { useEnvironments, usePrimaryEnvironmentId } from "../../state/environments";
 import { projectEnvironment } from "../../state/projects";
 import { useAtomCommand } from "../../state/use-atom-command";
+import { useAtomQueryRunner } from "../../state/use-atom-query-runner";
+import {
+  buildProductContext,
+  PRODUCT_CONTEXT_FILENAME,
+  PRODUCT_CONTEXT_SOURCES,
+} from "@t3tools/client-runtime/fourspaces/product-context";
 import { KindPicker } from "./workspaceKindPicker";
 
 function kindForSpace(space: FourSpaceWorkspaceId): FourSpaceKind {
@@ -101,6 +108,34 @@ function NewWorkspaceForm({
   const upsertEntry = useFourspacesRegistryStore((state) => state.upsertWorkspaceEntry);
   const createProject = useAtomCommand(projectEnvironment.create, { reportFailure: false });
   const openWorkspaceThread = useOpenWorkspaceThread();
+  const runReadFile = useAtomQueryRunner(projectEnvironment.readFile, { reportFailure: false });
+  const runWriteFile = useAtomCommand(projectEnvironment.writeFile, { reportFailure: false });
+
+  const readProductContextSnapshot = async (input: {
+    environmentId: EnvironmentId;
+    productRoot: string;
+    productTitle: string;
+    experimentName: string;
+  }): Promise<string | null> => {
+    const sources = [];
+    for (const path of PRODUCT_CONTEXT_SOURCES) {
+      const result = await runReadFile({
+        environmentId: input.environmentId,
+        input: { cwd: input.productRoot, relativePath: path },
+      });
+      sources.push({
+        path,
+        contents: result._tag === "Success" ? result.value.contents : null,
+      });
+    }
+    return buildProductContext({
+      productTitle: input.productTitle,
+      productRoot: input.productRoot,
+      experimentName: input.experimentName,
+      createdAt: new Date().toISOString().slice(0, 10),
+      sources,
+    });
+  };
   const [kind, setKind] = useState<FourSpaceKind>(() => kindForSpace(initialSpace));
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -117,6 +152,12 @@ function NewWorkspaceForm({
   const defaultRoot = registryState ? resolveDefaultRoot(registryState) : "~/T3";
   const destination =
     resolvedEnvironmentId != null ? resolveImportDestination(defaultRoot, kind, name) : null;
+  const originEntry = originProductId
+    ? (registryState?.entries.find((entry) => entry.workspaceId === originProductId) ?? null)
+    : null;
+  const originProject = originEntry?.projectId
+    ? projects.find((project) => project.id === originEntry.projectId)
+    : undefined;
 
   const submit = async () => {
     if (!resolvedEnvironmentId || busy) return;
@@ -167,6 +208,30 @@ function NewWorkspaceForm({
         kind,
         ...(originProductId ? { originProductId } : {}),
       });
+      // Experiments created from a product carry a compact context snapshot
+      // so they work standalone in any harness. Best effort: a missing
+      // snapshot never blocks creation.
+      if (originProductId && originProject) {
+        const contextBody = await readProductContextSnapshot({
+          environmentId: resolvedEnvironmentId,
+          productRoot: originProject.workspaceRoot,
+          productTitle: originProject.title,
+          experimentName: folder,
+        });
+        if (contextBody) {
+          const written = await runWriteFile({
+            environmentId: resolvedEnvironmentId,
+            input: { cwd: root, relativePath: PRODUCT_CONTEXT_FILENAME, contents: contextBody },
+          });
+          if (written._tag === "Failure" && !isAtomCommandInterrupted(written)) {
+            toastManager.add({
+              type: "warning",
+              title: "Workspace created without product context",
+              description: `${PRODUCT_CONTEXT_FILENAME} could not be written.`,
+            });
+          }
+        }
+      }
       toastManager.add({
         type: "success",
         title: `New ${FOURSPACE_LABELS[kind]}`,
@@ -187,6 +252,13 @@ function NewWorkspaceForm({
   return (
     <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
       <KindPicker value={kind} onChange={setKind} />
+      {originProject ? (
+        <p className="text-[13px] text-muted-foreground">
+          From: <span className="font-medium text-foreground">{originProject.title}</span> — a
+          product context snapshot ({PRODUCT_CONTEXT_FILENAME}) travels along when the product has
+          notes to share.
+        </p>
+      ) : null}
       <div className="flex flex-col gap-1.5 text-[13px]">
         <span className="font-medium text-foreground">Name</span>
         <Input

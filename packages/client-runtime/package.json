@@ -39,6 +39,10 @@
       "types": "./src/fourspaces/notes.ts",
       "default": "./src/fourspaces/notes.ts"
     },
+    "./fourspaces/product-context": {
+      "types": "./src/fourspaces/productContext.ts",
+      "default": "./src/fourspaces/productContext.ts"
+    },
     "./fourspaces/relocate": {
       "types": "./src/fourspaces/relocate.ts",
       "default": "./src/fourspaces/relocate.ts"

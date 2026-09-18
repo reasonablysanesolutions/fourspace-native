@@ -3,7 +3,7 @@ import type { EnvironmentId } from "@t3tools/contracts";
 
 import type { FourSpaceWorkspaceId } from "./spaces";
 
-export type FourspacesDialogMode = "import" | "organize" | "new" | "notes";
+export type FourspacesDialogMode = "import" | "organize" | "new" | "notes" | "product";
 
 /** Workspace target for the notes dialog. */
 export interface NotesProject {
@@ -28,6 +28,7 @@ interface FourspacesUiState {
   openOrganizeDialog: (space: FourSpaceWorkspaceId) => void;
   openNewDialog: (space: FourSpaceWorkspaceId, originProductId?: string | null) => void;
   openNotesDialog: (space: FourSpaceWorkspaceId, project: NotesProject) => void;
+  openProductDialog: (space: FourSpaceWorkspaceId, project: NotesProject) => void;
   closeDialog: () => void;
 }
 
@@ -41,6 +42,8 @@ export const useFourspacesUiStore = create<FourspacesUiState>()((set) => ({
     set({ dialog: { mode: "new", space, originProductId: originProductId ?? null } }),
   openNotesDialog: (space, project) =>
     set({ dialog: { mode: "notes", space, notesProject: project } }),
+  openProductDialog: (space, project) =>
+    set({ dialog: { mode: "product", space, notesProject: project } }),
   closeDialog: () => set({ dialog: null }),
 }));
 

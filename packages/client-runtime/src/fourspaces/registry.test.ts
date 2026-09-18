@@ -11,6 +11,8 @@ import {
   resolveChatProjectId,
   resolveDefaultImportMode,
   resolveDefaultRoot,
+  resolveOriginProductRef,
+  resolveOriginProductTitle,
   resolveProjectSpace,
   sanitizeEnvironmentState,
   sanitizeRegistry,
@@ -39,6 +41,10 @@ function entry(overrides: Partial<FourSpacesWorkspaceEntry> = {}): FourSpacesWor
 
 function project(id: string, workspaceRoot: string) {
   return { id, workspaceRoot, environmentId };
+}
+
+function titledProject(id: string, workspaceRoot: string, title: string) {
+  return { ...project(id, workspaceRoot), title };
 }
 
 describe("fourspaces registry", () => {
@@ -208,6 +214,55 @@ describe("fourspaces registry", () => {
       "p2",
     ]);
     expect(selectVisibleProjects(projects, registry, "chat")).toEqual([]);
+  });
+
+  it("resolves the origin product title for experiments", () => {
+    const projects = [
+      titledProject("p-prod", "/work/plocka", "Plocka"),
+      titledProject("p-exp", "/work/ocr", "OCR test"),
+      titledProject("p-lone", "/work/lone", "Lone"),
+    ];
+    let state = upsertWorkspaceEntry(emptyEnvironmentState(), {
+      workspaceId: "prod",
+      workspaceRoot: "/work/plocka",
+      projectId: "p-prod",
+      kind: "product",
+    });
+    state = upsertWorkspaceEntry(state, {
+      workspaceId: "exp",
+      workspaceRoot: "/work/ocr",
+      projectId: "p-exp",
+      kind: "experiment",
+      originProductId: "prod",
+    });
+    expect(
+      resolveOriginProductTitle(projects, state, { id: "p-exp", workspaceRoot: "/work/ocr" }),
+    ).toBe("Plocka");
+    expect(
+      resolveOriginProductTitle(projects, state, { id: "p-lone", workspaceRoot: "/work/lone" }),
+    ).toBeNull();
+    // Origin entry without a linked project still resolves by root.
+    const rootOnly = upsertWorkspaceEntry(emptyEnvironmentState(), {
+      workspaceId: "prod2",
+      workspaceRoot: "/work/plocka",
+      kind: "product",
+    });
+    const withExp = upsertWorkspaceEntry(rootOnly, {
+      workspaceId: "exp2",
+      workspaceRoot: "/work/ocr",
+      projectId: "p-exp",
+      kind: "experiment",
+      originProductId: "prod2",
+    });
+    expect(
+      resolveOriginProductTitle(projects, withExp, { id: "p-exp", workspaceRoot: "/work/ocr" }),
+    ).toBe("Plocka");
+    expect(
+      resolveOriginProductRef(projects, withExp, { id: "p-exp", workspaceRoot: "/work/ocr" })?.id,
+    ).toBe("p-prod");
+    expect(
+      resolveOriginProductRef(projects, withExp, { id: "p-lone", workspaceRoot: "/work/lone" }),
+    ).toBeNull();
   });
 
   it("lists unsorted projects excluding classified and chat projects", () => {

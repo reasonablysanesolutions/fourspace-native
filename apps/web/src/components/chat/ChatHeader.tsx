@@ -11,7 +11,7 @@ import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
-import { ChevronDownIcon, NotebookPenIcon } from "lucide-react";
+import { ChevronDownIcon, NotebookPenIcon, PackageIcon } from "lucide-react";
 import {
   memo,
   useCallback,
@@ -53,6 +53,15 @@ import {
   useFourspacesNavStore,
 } from "../../fourspaces/fourspacesNavStore";
 import { useFourspacesUiStore } from "../../fourspaces/fourspacesUiStore";
+import {
+  findWorkspaceEntry,
+  resolveOriginProductRef,
+} from "@t3tools/client-runtime/fourspaces/registry";
+import {
+  selectEnvironmentRegistry,
+  useFourspacesRegistryStore,
+} from "../../fourspaces/fourspacesRegistryStore";
+import { useProjects } from "../../state/entities";
 
 interface ChatHeaderProps {
   activeThreadEnvironmentId: EnvironmentId;
@@ -169,6 +178,26 @@ export const ChatHeader = memo(function ChatHeader({
   // unclassified projects alike can keep them.
   const activeWorkspaceSpace = useFourspacesNavStore(selectActiveWorkspaceSpace);
   const openNotesDialog = useFourspacesUiStore((state) => state.openNotesDialog);
+  const openProductDialog = useFourspacesUiStore((state) => state.openProductDialog);
+  // Product relations: the overview button for products, and the "From"
+  // chip for experiments created from a product.
+  const projects = useProjects();
+  const registryStore = useFourspacesRegistryStore();
+  const activeEntry =
+    activeProject != null
+      ? (findWorkspaceEntry(selectEnvironmentRegistry(registryStore, activeProject.environmentId), {
+          id: activeProject.id,
+          workspaceRoot: activeProject.workspaceRoot,
+        }) ?? null)
+      : null;
+  const originProduct =
+    activeProject != null && activeEntry?.kind === "experiment"
+      ? resolveOriginProductRef(
+          projects,
+          selectEnvironmentRegistry(registryStore, activeProject.environmentId),
+          { id: activeProject.id, workspaceRoot: activeProject.workspaceRoot },
+        )
+      : null;
   const fileScripts = useT3ProjectFileScripts(
     activeThreadEnvironmentId,
     activeProjectScripts ? activeProjectCwd : null,
@@ -448,6 +477,58 @@ export const ChatHeader = memo(function ChatHeader({
             {...(draftId ? { draftId } : {})}
           />
         )}
+        {activeProject && activeEntry?.kind === "product" ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  aria-label="Product overview"
+                  size="icon-xs"
+                  type="button"
+                  variant="ghost"
+                  onClick={() =>
+                    openProductDialog(activeWorkspaceSpace, {
+                      environmentId: activeProject.environmentId,
+                      projectId: activeProject.id,
+                      cwd: activeProject.workspaceRoot,
+                      title: activeProject.title,
+                    })
+                  }
+                />
+              }
+            >
+              <PackageIcon className="size-4" />
+            </TooltipTrigger>
+            <TooltipPopup side="top">Product overview</TooltipPopup>
+          </Tooltip>
+        ) : null}
+        {activeProject && originProduct ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  className="max-w-44"
+                  size="xs"
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    openProductDialog(activeWorkspaceSpace, {
+                      environmentId: originProduct.environmentId,
+                      projectId: originProduct.id,
+                      cwd: originProduct.workspaceRoot,
+                      title: originProduct.title,
+                    })
+                  }
+                />
+              }
+            >
+              <span className="truncate text-xs">
+                From: <span className="font-medium">{originProduct.title}</span>
+              </span>
+            </TooltipTrigger>
+            <TooltipPopup side="top">Open {originProduct.title} overview</TooltipPopup>
+          </Tooltip>
+        ) : null}
         {activeProject && activeWorkspaceSpace !== "chat" ? (
           <Tooltip>
             <TooltipTrigger
