@@ -22,6 +22,7 @@ export type SettingsPath =
   | "/settings/source-control"
   | "/settings/storage"
   | "/settings/connections"
+  | "/settings/four-spaces"
   | "/settings/archived";
 
 /**
@@ -91,6 +92,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/source-control": "Source Control",
   "/settings/storage": "Storage",
   "/settings/connections": "Connections",
+  "/settings/four-spaces": "Four Spaces",
   "/settings/archived": "Archive",
 };
 
@@ -490,6 +492,20 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/snap-shot",
   },
   {
+    id: "four-spaces-root",
+    title: "Four Spaces standard root",
+    to: "/settings/four-spaces",
+    targetId: "four-spaces-root",
+    searchTerms: ["four spaces workspace root experiments projects products directory default"],
+  },
+  {
+    id: "four-spaces-import",
+    title: "Four Spaces import behavior",
+    to: "/settings/four-spaces",
+    targetId: "four-spaces-import",
+    searchTerms: ["four spaces import keep move copy default location"],
+  },
+  {
     id: "snap-shot-accessibility",
     title: "Include app text",
     to: "/settings/snap-shot",
@@ -809,6 +825,7 @@ const SETTINGS_CATEGORY_SCOPES: Readonly<Record<SettingsPath, SettingsSearchScop
   "/settings/source-control": "environment-defaults",
   "/settings/storage": "project-defaults",
   "/settings/connections": "connections",
+  "/settings/four-spaces": null,
   "/settings/archived": "project-defaults",
 };
 

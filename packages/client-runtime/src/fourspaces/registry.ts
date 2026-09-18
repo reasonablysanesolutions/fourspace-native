@@ -15,6 +15,9 @@ export const FOURSPACE_KINDS = ["experiment", "project", "product"] as const;
 
 export type FourSpaceKind = (typeof FOURSPACE_KINDS)[number];
 
+/** Keep in place (default), or Move/Copy into the standard roots on import. */
+export type FourSpaceImportMode = "keep" | "move" | "copy";
+
 /** A workspace space that filters T3 projects (chat included). */
 export type FourSpaceWorkspaceSpace = FourSpaceKind | "chat";
 
@@ -34,6 +37,8 @@ export interface FourSpacesEnvironmentState {
   readonly version: 1;
   /** Destination for workspaces created through Four Spaces. Null means "not configured". */
   readonly defaultRoot: string | null;
+  /** Default Keep/Move/Copy choice in the import dialog. Null means Keep. */
+  readonly defaultImportMode: FourSpaceImportMode | null;
   /** T3 project backing the Chat space (hidden implementation detail). */
   readonly chatProjectId: string | null;
   readonly entries: ReadonlyArray<FourSpacesWorkspaceEntry>;
@@ -45,7 +50,13 @@ export const DEFAULT_FOURSPACES_ROOT = "~/T3";
 export const CHAT_WORKSPACE_DIRNAME = "Chat";
 
 export function emptyEnvironmentState(): FourSpacesEnvironmentState {
-  return { version: 1, defaultRoot: null, chatProjectId: null, entries: [] };
+  return {
+    version: 1,
+    defaultRoot: null,
+    defaultImportMode: null,
+    chatProjectId: null,
+    entries: [],
+  };
 }
 
 function sanitizeString(value: unknown): string | null {
@@ -55,6 +66,14 @@ function sanitizeString(value: unknown): string | null {
 function sanitizeKind(value: unknown): FourSpaceKind | null {
   return (FOURSPACE_KINDS as ReadonlyArray<unknown>).includes(value)
     ? (value as FourSpaceKind)
+    : null;
+}
+
+const FOURSPACE_IMPORT_MODES: ReadonlyArray<FourSpaceImportMode> = ["keep", "move", "copy"];
+
+function sanitizeImportMode(value: unknown): FourSpaceImportMode | null {
+  return (FOURSPACE_IMPORT_MODES as ReadonlyArray<unknown>).includes(value)
+    ? (value as FourSpaceImportMode)
     : null;
 }
 
@@ -92,6 +111,7 @@ export function sanitizeEnvironmentState(value: unknown): FourSpacesEnvironmentS
   return {
     version: 1,
     defaultRoot: sanitizeString(record.defaultRoot),
+    defaultImportMode: sanitizeImportMode(record.defaultImportMode),
     chatProjectId: sanitizeString(record.chatProjectId),
     entries,
   };
@@ -166,6 +186,18 @@ export function setDefaultRoot(
 ): FourSpacesEnvironmentState {
   const next = sanitizeString(root);
   return state.defaultRoot === next ? state : { ...state, defaultRoot: next };
+}
+
+export function resolveDefaultImportMode(state: FourSpacesEnvironmentState): FourSpaceImportMode {
+  return state.defaultImportMode ?? "keep";
+}
+
+export function setDefaultImportMode(
+  state: FourSpacesEnvironmentState,
+  mode: FourSpaceImportMode | null,
+): FourSpacesEnvironmentState {
+  const next = mode === null ? null : (sanitizeImportMode(mode) ?? "keep");
+  return state.defaultImportMode === next ? state : { ...state, defaultImportMode: next };
 }
 
 export interface WorkspaceRef {

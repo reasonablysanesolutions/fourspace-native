@@ -9,6 +9,7 @@ import {
   removeWorkspaceEntriesForProject,
   removeWorkspaceEntry,
   resolveChatProjectId,
+  resolveDefaultImportMode,
   resolveDefaultRoot,
   resolveProjectSpace,
   sanitizeEnvironmentState,
@@ -16,6 +17,7 @@ import {
   selectProjectsForSpace,
   selectUnsortedProjects,
   selectVisibleProjects,
+  setDefaultImportMode,
   setChatProjectId,
   setDefaultRoot,
   upsertWorkspaceEntry,
@@ -237,6 +239,17 @@ describe("fourspaces registry", () => {
         (item) => item.id,
       ),
     ).toEqual(["p-exp", "p-new"]);
+  });
+
+  it("round-trips the default import mode with keep as fallback", () => {
+    expect(resolveDefaultImportMode(emptyEnvironmentState())).toBe("keep");
+    const state = setDefaultImportMode(emptyEnvironmentState(), "copy");
+    expect(resolveDefaultImportMode(state)).toBe("copy");
+    expect(setDefaultImportMode(state, "copy")).toBe(state);
+    expect(resolveDefaultImportMode(setDefaultImportMode(state, null))).toBe("keep");
+    expect(
+      sanitizeEnvironmentState({ ...state, defaultImportMode: "teleport" }).defaultImportMode,
+    ).toBeNull();
   });
 
   it("reads per-environment registries and honors default root overrides", () => {

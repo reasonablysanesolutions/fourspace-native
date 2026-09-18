@@ -10,7 +10,14 @@
  * of the sidebar's scope logic. `searchFieldRef` lands on the search field so
  * the picker's popup can anchor to that width rather than to its 28px trigger.
  */
-import { FolderInputIcon, FolderPlusIcon, SearchIcon, SquarePenIcon, XIcon } from "lucide-react";
+import {
+  FolderInputIcon,
+  FolderPlusIcon,
+  PlusIcon,
+  SearchIcon,
+  SquarePenIcon,
+  XIcon,
+} from "lucide-react";
 import {
   type ComponentProps,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -35,6 +42,8 @@ export interface SidebarThreadHeaderProps {
   onNewProject: () => void;
   /** Four Spaces workspace import. Null hides the button (e.g. Chat has no import). */
   onImportWorkspace: (() => void) | null;
+  /** Four Spaces workspace creation. Null hides the button (e.g. Chat uses threads). */
+  onNewWorkspace: { label: string; onClick: () => void } | null;
   /** Receives the click so Shift+click can skip the project picker. */
   onNewThread: (event: ReactMouseEvent) => void;
   newThreadDisabled: boolean;
@@ -58,6 +67,7 @@ export function SidebarThreadHeader({
   projectScope,
   onNewProject,
   onImportWorkspace,
+  onNewWorkspace,
   onNewThread,
   newThreadDisabled,
   newThreadShortcutLabel,
@@ -140,6 +150,11 @@ export function SidebarThreadHeader({
         {onImportWorkspace ? (
           <SidebarHeaderIconButton label="Import workspace" onClick={onImportWorkspace}>
             <FolderInputIcon />
+          </SidebarHeaderIconButton>
+        ) : null}
+        {onNewWorkspace ? (
+          <SidebarHeaderIconButton label={onNewWorkspace.label} onClick={onNewWorkspace.onClick}>
+            <PlusIcon />
           </SidebarHeaderIconButton>
         ) : null}
         <SidebarHeaderIconButton

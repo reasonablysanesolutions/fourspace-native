@@ -7,13 +7,13 @@
 // project.meta.update when a move carries an existing project along, and a
 // registry row for the classification. Moves and copies go through the
 // fourspaces.relocateWorkspace RPC; nothing is ever rewritten in place.
-import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import {
   resolveImportDestination,
   basenameForImport,
   type WorkspaceImportMode,
 } from "@t3tools/client-runtime/fourspaces/relocate";
 import {
+  resolveDefaultImportMode,
   resolveDefaultRoot,
   selectUnsortedProjects,
   type FourSpaceKind,
@@ -24,7 +24,6 @@ import {
 } from "@t3tools/client-runtime/operations/projects";
 import {
   isAtomCommandInterrupted,
-  settlePromise,
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
 import { RelocateWorkspaceError, type EnvironmentId, type ProjectId } from "@t3tools/contracts";
@@ -46,14 +45,14 @@ import { Input } from "../ui/input";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { toastManager } from "../ui/toast";
 import { FOURSPACE_LABELS, type FourSpaceWorkspaceId } from "../../fourspaces/spaces";
-import { useFourspacesNavStore } from "../../fourspaces/fourspacesNavStore";
+import { KIND_OPTIONS, KindPicker } from "./workspaceKindPicker";
 import {
   selectEnvironmentRegistry,
   useFourspacesRegistryStore,
 } from "../../fourspaces/fourspacesRegistryStore";
 import { useFourspacesUiStore } from "../../fourspaces/fourspacesUiStore";
 import { newProjectId } from "../../lib/utils";
-import { useNewThreadHandler } from "../../hooks/useHandleNewThread";
+import { useOpenWorkspaceThread } from "../../fourspaces/useOpenWorkspaceThread";
 import {
   inferProjectTitleFromPath,
   isExplicitRelativeProjectPath,
@@ -67,8 +66,6 @@ import { fourspacesEnvironment } from "../../state/fourspaces";
 import { projectEnvironment } from "../../state/projects";
 import { useEnvironmentQuery } from "../../state/query";
 import { useAtomCommand } from "../../state/use-atom-command";
-
-const KIND_OPTIONS: ReadonlyArray<FourSpaceKind> = ["experiment", "project", "product"];
 
 const isRelocateWorkspaceError = Schema.is(RelocateWorkspaceError);
 
@@ -209,43 +206,6 @@ function EnvironmentPicker({
   );
 }
 
-function KindPicker({
-  value,
-  onChange,
-}: {
-  value: FourSpaceKind;
-  onChange: (value: FourSpaceKind) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5 text-[13px]">
-      <span className="font-medium text-foreground">Type</span>
-      <div
-        className="flex gap-1 rounded-lg bg-input/40 p-1"
-        role="radiogroup"
-        aria-label="Workspace type"
-      >
-        {KIND_OPTIONS.map((kind) => (
-          <button
-            aria-pressed={value === kind}
-            className={
-              value === kind
-                ? "flex-1 cursor-pointer rounded-md bg-background px-2 py-1.5 font-medium text-foreground shadow-sm"
-                : "flex-1 cursor-pointer rounded-md px-2 py-1.5 text-muted-foreground hover:text-foreground"
-            }
-            key={kind}
-            onClick={() => onChange(kind)}
-            type="button"
-            role="radio"
-            aria-checked={value === kind}
-          >
-            {FOURSPACE_LABELS[kind]}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 const IMPORT_MODES: ReadonlyArray<{ value: WorkspaceImportMode; label: string; hint: string }> = [
   { value: "keep", label: "Keep in place", hint: "The folder stays where it is. Recommended." },
   { value: "move", label: "Move into Four Spaces", hint: "Moves the folder to the standard root." },
@@ -268,11 +228,10 @@ function ImportFolderPanel({
   const relocate = useAtomCommand(fourspacesEnvironment.relocateWorkspace, {
     reportFailure: false,
   });
-  const handleNewThread = useNewThreadHandler();
-  const setActiveWorkspaceSpace = useFourspacesNavStore((state) => state.setActiveWorkspaceSpace);
+  const openWorkspaceThread = useOpenWorkspaceThread();
   const [sourcePath, setSourcePath] = useState("");
   const [kind, setKind] = useState<FourSpaceKind>(() => kindForSpace(initialSpace));
-  const [mode, setMode] = useState<WorkspaceImportMode>("keep");
+  const [modeOverride, setModeOverride] = useState<WorkspaceImportMode | null>(null);
   const [folderName, setFolderName] = useState<string | null>(null);
   const [browsing, setBrowsing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -282,6 +241,7 @@ function ImportFolderPanel({
   const registryState =
     environmentId != null ? selectEnvironmentRegistry(registryStore, environmentId) : null;
   const defaultRoot = registryState ? resolveDefaultRoot(registryState) : "~/T3";
+  const mode = modeOverride ?? (registryState ? resolveDefaultImportMode(registryState) : "keep");
   const effectiveFolderName = folderName ?? basenameForImport(sourcePath);
   const destination =
     mode === "keep" || environmentId == null
@@ -451,18 +411,12 @@ function ImportFolderPanel({
       });
       onDone();
       if (openedProjectId) {
-        setActiveWorkspaceSpace(kind);
-        const thread = await settlePromise(() =>
-          handleNewThread(scopeProjectRef(environmentId, openedProjectId as ProjectId)),
-        );
-        if (thread._tag === "Failure" && !isAtomCommandInterrupted(thread)) {
-          const cause = squashAtomCommandFailure(thread);
-          toastManager.add({
-            type: "warning",
-            title: "Imported, but no thread opened",
-            description: cause instanceof Error ? cause.message : "Open a thread manually.",
-          });
-        }
+        await openWorkspaceThread({
+          environmentId,
+          projectId: openedProjectId as ProjectId,
+          kind,
+          root: finalRoot,
+        });
       }
     } finally {
       setBusy(false);
@@ -520,7 +474,7 @@ function ImportFolderPanel({
               }
               key={option.value}
               onClick={() => {
-                setMode(option.value);
+                setModeOverride(option.value);
                 setError(null);
               }}
               type="button"

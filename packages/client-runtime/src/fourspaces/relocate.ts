@@ -3,7 +3,7 @@
 // Naming rules for workspaces created through Move/Copy: the folder keeps its
 // source basename under the kind's standard directory. Registration itself
 // (project.create/meta.update + registry row) stays a caller composition.
-import type { FourSpaceKind } from "./registry.ts";
+import type { FourSpaceImportMode, FourSpaceKind } from "./registry.ts";
 
 export const KIND_DIRECTORY_NAMES: Record<FourSpaceKind, string> = {
   experiment: "Experiments",
@@ -11,7 +11,8 @@ export const KIND_DIRECTORY_NAMES: Record<FourSpaceKind, string> = {
   product: "Products",
 };
 
-export type WorkspaceImportMode = "keep" | "move" | "copy";
+/** Alias kept for existing import sites; prefer FourSpaceImportMode. */
+export type WorkspaceImportMode = FourSpaceImportMode;
 
 /** Last path segment, tolerant of pasted paths with trailing separators. */
 export function basenameForImport(sourcePath: string): string {

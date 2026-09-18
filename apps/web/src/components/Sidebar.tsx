@@ -141,6 +141,7 @@ import {
 } from "../fourspaces/fourspacesNavStore";
 import { useFourspacesUiStore } from "../fourspaces/fourspacesUiStore";
 import { useFourspacesRegistryStore } from "../fourspaces/fourspacesRegistryStore";
+import { FOURSPACE_LABELS } from "../fourspaces/spaces";
 import {
   readEnvironmentState,
   sanitizeRegistry,
@@ -2151,6 +2152,7 @@ export default function Sidebar() {
   const projects = useSpaceFilteredProjects();
   const activeWorkspaceSpace = useFourspacesNavStore(selectActiveWorkspaceSpace);
   const openImportWorkspaceDialog = useFourspacesUiStore((state) => state.openImportDialog);
+  const openNewWorkspaceDialog = useFourspacesUiStore((state) => state.openNewDialog);
   const projectOrder = useUiStateStore((store) => store.projectOrder);
   const threads = useThreadShells();
   const router = useRouter();
@@ -4600,6 +4602,14 @@ export default function Sidebar() {
                 activeWorkspaceSpace === "chat"
                   ? null
                   : () => openImportWorkspaceDialog(activeWorkspaceSpace)
+              }
+              onNewWorkspace={
+                activeWorkspaceSpace === "chat"
+                  ? null
+                  : {
+                      label: `New ${FOURSPACE_LABELS[activeWorkspaceSpace]}`,
+                      onClick: () => openNewWorkspaceDialog(activeWorkspaceSpace),
+                    }
               }
               onNewThread={handleNewThreadClick}
               newThreadDisabled={projects.length === 0}

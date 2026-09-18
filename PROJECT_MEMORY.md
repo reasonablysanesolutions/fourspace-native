@@ -27,6 +27,13 @@
 
 ## Recent meaningful changes
 
+- FAS 5 klar (2026-09-18): New-flöden + Four Spaces settings-sektion.
+  - Registry: `defaultImportMode` (null=Keep) + sanitize/setter/test; modetypen bor i registry (relocate återexporterar alias).
+  - Nytt: `NewWorkspaceDialog.tsx` (namn + kind + preview + dup-refusal, originProductId-plumbing för FAS 8), `workspaceKindPicker.tsx` (delad), `useOpenWorkspaceThread.ts` (delad finish; import refaktorerad).
+  - Header: Plus-knapp "New Experiment/Project/Product" (dold i Chat); T3:s New project orörd.
+  - Settings `/settings/four-spaces` (DEVICE_ONLY, egen nav-ikon): per-machine Standard root (input+Browse+reset) + Default import mode (förval i import-dialogen). Sökposter registrerade; övriga settings orörda.
+  - Fälla: EnvironmentRow-children är shrink-0 auto-kolumn — nästlad SettingsRow overflowar; kompakt stacked layout krävs.
+  - Verifierat: New (dir+projekt+rad+tråd+space), dup-refusal, settings-save→ny root används, import-preselect, 0 pageerrors.
 - FAS 4 klar (2026-09-18): Import (Keep/Move/Copy) + Import from T3. Första backend-slicen: `fourspaces.relocateWorkspace`-RPC.
   - Kontrakt: `packages/contracts/src/fourspaces.ts` (mode/input/result/typade fel) + metod + Rpc + grupp. Server: `apps/server/src/fourspaces/relocateWorkspace.ts` (+3 tester): källa måste vara katalog, dest får ej finnas, aldrig in i sig själv; move = rename med copy+delete-fallback över volymgränser (upptäckt via smoke: /tmp→extern disk ger EXDEV); `~` expanderas som project creation. Handler i `ws.ts` (5 rader) + Operate-scope.
   - Klient: `fourspaces/relocate.ts` (rena namnregler + tester), `state/fourspaces.ts`-atoms (serial per env), web-wrapper.
@@ -55,6 +62,6 @@
 
 ## Next steps
 
-1. Sätt personlig fork-remote (egen GitHub-fork) om upstream-pull ska vara smidig.
-2. FAS 5: standard roots + New-flöden (New Experiment/Project/Product under defaultRoot med auto-namn) + Four Spaces settings-sektion (defaultRoot).
-3. FAS 6: visuellt skal (spacing, typografi, ljusa ytor) — funktionellt klart under.
+1. NÄR ALLA FASER ÄR KLARA (användarens beslut 2026-09-18): skapa personlig GitHub-fork + remote + pusha. Tills dess: endast lokala commits, aldrig pusha till upstream.
+2. FAS 6: visuellt skal (spacing, typografi, ljusa ytor) — funktionellt klart under.
+3. FAS 7+: Notes (NOTES.md), Product→Experiment + PRODUCT_CONTEXT, Promote, usage-bar, Scheduled.

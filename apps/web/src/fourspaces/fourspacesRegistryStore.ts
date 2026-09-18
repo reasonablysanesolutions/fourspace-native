@@ -5,8 +5,10 @@ import {
   removeWorkspaceEntry,
   sanitizeRegistry,
   setChatProjectId as applyChatProjectId,
+  setDefaultImportMode as applyDefaultImportMode,
   setDefaultRoot as applyDefaultRoot,
   upsertWorkspaceEntry,
+  type FourSpaceImportMode,
   type FourSpacesEnvironmentState,
   type FourSpacesRegistry,
   type FourSpacesWorkspaceEntry,
@@ -23,6 +25,7 @@ interface FourspacesRegistryState {
   removeWorkspaceEntriesForProject: (environmentId: EnvironmentId, projectId: string) => void;
   setChatProjectId: (environmentId: EnvironmentId, projectId: string | null) => void;
   setDefaultRoot: (environmentId: EnvironmentId, root: string | null) => void;
+  setDefaultImportMode: (environmentId: EnvironmentId, mode: FourSpaceImportMode | null) => void;
 }
 
 function updateEnvironmentState(
@@ -70,6 +73,12 @@ export const useFourspacesRegistryStore = create<FourspacesRegistryState>()(
         set((state) =>
           updateEnvironmentState(state, environmentId, (current) =>
             applyDefaultRoot(current, root),
+          ),
+        ),
+      setDefaultImportMode: (environmentId, mode) =>
+        set((state) =>
+          updateEnvironmentState(state, environmentId, (current) =>
+            applyDefaultImportMode(current, mode),
           ),
         ),
     }),
