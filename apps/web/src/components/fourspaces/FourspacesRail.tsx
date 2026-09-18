@@ -27,26 +27,42 @@ import {
 interface RailItem {
   id: FourSpaceId;
   icon: ComponentType<{ className?: string }>;
+  /** Muted accent so the spaces stay scannable without shouting. */
+  iconClassName: string;
 }
 
 const WORKSPACE_ITEMS: ReadonlyArray<RailItem & { id: FourSpaceWorkspaceId }> = [
-  { id: "chat", icon: MessageCircleIcon },
-  { id: "experiment", icon: FlaskConicalIcon },
-  { id: "project", icon: FolderIcon },
-  { id: "product", icon: PackageIcon },
+  { id: "chat", icon: MessageCircleIcon, iconClassName: "text-sky-600 dark:text-sky-400" },
+  {
+    id: "experiment",
+    icon: FlaskConicalIcon,
+    iconClassName: "text-violet-600 dark:text-violet-400",
+  },
+  { id: "project", icon: FolderIcon, iconClassName: "text-emerald-600 dark:text-emerald-400" },
+  { id: "product", icon: PackageIcon, iconClassName: "text-amber-600 dark:text-amber-400" },
 ];
 
-const SCHEDULED_ITEM: RailItem = { id: "scheduled", icon: ClockIcon };
-const SETTINGS_ITEM: RailItem = { id: "settings", icon: SettingsIcon };
+const SCHEDULED_ITEM: RailItem = {
+  id: "scheduled",
+  icon: ClockIcon,
+  iconClassName: "text-slate-500 dark:text-slate-400",
+};
+const SETTINGS_ITEM: RailItem = {
+  id: "settings",
+  icon: SettingsIcon,
+  iconClassName: "text-slate-500 dark:text-slate-400",
+};
 
 function RailButton({
   active,
   icon: Icon,
+  iconClassName,
   label,
   onClick,
 }: {
   active: boolean;
   icon: ComponentType<{ className?: string }>;
+  iconClassName: string;
   label: string;
   onClick: () => void;
 }) {
@@ -63,7 +79,7 @@ function RailButton({
       onClick={onClick}
       type="button"
     >
-      <Icon className="size-4 shrink-0" />
+      <Icon className={cn("size-4 shrink-0", iconClassName)} />
       <span className="truncate">{label}</span>
     </button>
   );
@@ -102,6 +118,7 @@ export function FourspacesRail() {
           <RailButton
             active={activeSpace === item.id}
             icon={item.icon}
+            iconClassName={item.iconClassName}
             key={item.id}
             label={FOURSPACE_LABELS[item.id]}
             onClick={() => {
@@ -121,6 +138,7 @@ export function FourspacesRail() {
         <RailButton
           active={activeSpace === SCHEDULED_ITEM.id}
           icon={SCHEDULED_ITEM.icon}
+          iconClassName={SCHEDULED_ITEM.iconClassName}
           label={FOURSPACE_LABELS.scheduled}
           onClick={() => {
             if (pathname !== "/scheduled") {
@@ -133,6 +151,7 @@ export function FourspacesRail() {
         <RailButton
           active={activeSpace === SETTINGS_ITEM.id}
           icon={SETTINGS_ITEM.icon}
+          iconClassName={SETTINGS_ITEM.iconClassName}
           label={FOURSPACE_LABELS.settings}
           onClick={() => {
             if (pathname !== "/settings") {

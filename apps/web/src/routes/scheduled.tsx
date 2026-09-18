@@ -19,7 +19,7 @@ function ScheduledRouteView() {
             </span>
           </div>
         </WorkspacePageHeader>
-        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 overflow-y-auto px-6 py-8">
+        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-10 overflow-y-auto px-6 py-10">
           <ScheduledSection
             description="Jobs waiting for their next run."
             empty="No upcoming jobs."

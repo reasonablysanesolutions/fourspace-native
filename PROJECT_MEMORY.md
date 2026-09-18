@@ -27,6 +27,11 @@
 
 ## Recent meaningful changes
 
+- FAS 6 klar (2026-09-18): visuellt skal — endast yta, ingen funktionalitet.
+  - Rail: temamedvetna accentfärger per space (sky/violet/emerald/amber/slate med dark:-varianter, repo-konvention), neutral text, aktiv pill oförändrad.
+  - Scheduled: mer luft (gap/py). Dialoger/settings redan lugna (verifierade visuellt).
+  - Medvetet ORÖRT: T3:s composer, model picker, thread-sidebar, tema-system (default är redan system-följ med light-fallback — inget att ändra), Chat-chrome (ingen core-kirurgi för estetik).
+  - Verifierat med skärmdumpar i light + dark: rail, scheduled, import-dialog. 0 pageerrors. tsc/lint rena.
 - FAS 5 klar (2026-09-18): New-flöden + Four Spaces settings-sektion.
   - Registry: `defaultImportMode` (null=Keep) + sanitize/setter/test; modetypen bor i registry (relocate återexporterar alias).
   - Nytt: `NewWorkspaceDialog.tsx` (namn + kind + preview + dup-refusal, originProductId-plumbing för FAS 8), `workspaceKindPicker.tsx` (delad), `useOpenWorkspaceThread.ts` (delad finish; import refaktorerad).
