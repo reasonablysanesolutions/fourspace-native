@@ -238,14 +238,24 @@ export interface SpaceProject extends WorkspaceRef {
  * directory (`~/T3/Chat`) never string-matches. When the default root is in
  * use, also accept any project whose root ends in the default `T3/Chat`
  * layout instead of failing to adopt it on every visit.
+ *
+ * `excludeRoots` skips roots the session proved missing (normalized
+ * comparison): a folder deleted out-of-band must not be re-adopted on every
+ * visit. Session-scoped only — a resurrected folder is picked up on reload.
  */
 export function resolveChatProjectId(input: {
   readonly projects: ReadonlyArray<SpaceProject>;
   readonly environmentId: EnvironmentId;
   readonly state: FourSpacesEnvironmentState;
+  readonly excludeRoots?: ReadonlySet<string>;
 }): string | null {
+  const excluded = new Set(
+    [...(input.excludeRoots ?? [])].map((root) => normalizeProjectPathForComparison(root)),
+  );
   const candidates = input.projects.filter(
-    (project) => project.environmentId === input.environmentId,
+    (project) =>
+      project.environmentId === input.environmentId &&
+      !excluded.has(normalizeProjectPathForComparison(project.workspaceRoot)),
   );
   if (input.state.chatProjectId) {
     const stored = candidates.find((project) => project.id === input.state.chatProjectId);

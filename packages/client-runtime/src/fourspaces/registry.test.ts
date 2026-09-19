@@ -139,6 +139,26 @@ describe("fourspaces registry", () => {
     ).toBeNull();
   });
 
+  it("skips session-dead roots instead of re-adopting them", () => {
+    const projects = [project("p-chat", "/Users/me/T3/Chat")];
+    expect(
+      resolveChatProjectId({
+        projects,
+        environmentId,
+        state: emptyEnvironmentState(),
+        excludeRoots: new Set(["/Users/me/T3/Chat"]),
+      }),
+    ).toBeNull();
+    expect(
+      resolveChatProjectId({
+        projects,
+        environmentId,
+        state: emptyEnvironmentState(),
+        excludeRoots: new Set(["/elsewhere"]),
+      }),
+    ).toBe("p-chat");
+  });
+
   it("keeps unclassified projects visible in kind spaces, chat isolated", () => {
     const projects = [
       project("p-exp", "/work/exp"),

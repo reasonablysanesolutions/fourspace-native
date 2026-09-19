@@ -1,5 +1,6 @@
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
+import { isNotesMissingMessage } from "@t3tools/client-runtime/fourspaces/notes";
 import {
   chatWorkspaceRootFor,
   emptyEnvironmentState,
@@ -28,6 +29,7 @@ import {
   selectEnvironmentRegistry,
   useFourspacesRegistryStore,
 } from "../fourspaces/fourspacesRegistryStore";
+import { useFourspacesUiStore } from "../fourspaces/fourspacesUiStore";
 import { useNewThreadHandler } from "../hooks/useHandleNewThread";
 import { newProjectId } from "../lib/utils";
 import {
@@ -37,6 +39,7 @@ import {
 } from "../state/entities";
 import { useEnvironments, usePrimaryEnvironmentId } from "../state/environments";
 import { projectEnvironment } from "../state/projects";
+import { useEnvironmentQuery } from "../state/query";
 import { useAtomCommand } from "../state/use-atom-command";
 import { APP_DISPLAY_NAME } from "~/branding";
 import { hasCloudPublicConfig } from "~/cloud/publicConfig";
@@ -53,6 +56,7 @@ function ChatIndexRouteView() {
   return <IndexDraftLanding />;
 }
 
+const EMPTY_DEAD_ROOTS: ReadonlyArray<string> = [];
 /**
  * Landing on the index route drops straight into a draft thread for the most
  * recently active project, so the first screen is a prompt instead of a dead
@@ -75,6 +79,15 @@ function IndexDraftLanding() {
   const createProject = useAtomCommand(projectEnvironment.create, { reportFailure: false });
   const startKeyRef = useRef<string | null>(null);
   const [startState, setStartState] = useState({ failed: false, retryRequest: 0 });
+  const markChatRootDead = useFourspacesUiStore((state) => state.markChatRootDead);
+  // Session-scoped roots proven missing (see the probe below): never
+  // re-adopt them while this document lives.
+  const deadRootList = useFourspacesUiStore((state) =>
+    primaryEnvironmentId
+      ? (state.deadChatRootsByEnvironment[primaryEnvironmentId] ?? EMPTY_DEAD_ROOTS)
+      : EMPTY_DEAD_ROOTS,
+  );
+  const deadRoots = useMemo(() => new Set(deadRootList), [deadRootList]);
 
   const registryState = useMemo(
     () =>
@@ -91,10 +104,50 @@ function IndexDraftLanding() {
             projects,
             environmentId: primaryEnvironmentId,
             state: registryState,
+            excludeRoots: deadRoots,
           })
         : null,
-    [space, projects, primaryEnvironmentId, registryState],
+    [space, projects, primaryEnvironmentId, registryState, deadRoots],
   );
+
+  // Self-healing: the adopted backing project may point at a folder that was
+  // deleted out-of-band (drafting into it shows T3's missing-folder banner).
+  // Probe the root; when it is clearly gone, drop the link so the landing
+  // below creates a fresh backing project. Any other outcome (including
+  // transient errors) keeps today's behavior — never unlink on a guess.
+  const chatProjectRoot =
+    space === "chat" && chatProjectId
+      ? (projects.find((project) => project.id === chatProjectId)?.workspaceRoot ?? null)
+      : null;
+  const chatRootProbe = useEnvironmentQuery(
+    chatProjectRoot && primaryEnvironmentId
+      ? projectEnvironment.listEntries({
+          environmentId: primaryEnvironmentId,
+          input: { cwd: chatProjectRoot },
+        })
+      : null,
+  );
+  const chatRootGone =
+    space === "chat" &&
+    chatProjectId !== null &&
+    chatProjectRoot !== null &&
+    !chatRootProbe.isPending &&
+    !!chatRootProbe.error &&
+    isNotesMissingMessage(chatRootProbe.error);
+
+  useEffect(() => {
+    if (!chatRootGone || !primaryEnvironmentId || !chatProjectId || !chatProjectRoot) return;
+    setChatProjectId(primaryEnvironmentId, null);
+    markChatRootDead(primaryEnvironmentId, chatProjectRoot);
+    startKeyRef.current = null;
+  }, [
+    chatRootGone,
+    primaryEnvironmentId,
+    chatProjectId,
+    chatProjectRoot,
+    markChatRootDead,
+    setChatProjectId,
+  ]);
 
   const mostRecentProject = useMemo(
     () =>

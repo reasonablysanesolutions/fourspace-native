@@ -24,11 +24,14 @@ interface FourspacesDialogRequest {
 
 interface FourspacesUiState {
   readonly dialog: FourspacesDialogRequest | null;
+  /** Session-only roots proven missing: never re-adopt them as Chat backing. */
+  readonly deadChatRootsByEnvironment: Record<string, ReadonlyArray<string>>;
   openImportDialog: (space: FourSpaceWorkspaceId) => void;
   openOrganizeDialog: (space: FourSpaceWorkspaceId) => void;
   openNewDialog: (space: FourSpaceWorkspaceId, originProductId?: string | null) => void;
   openNotesDialog: (space: FourSpaceWorkspaceId, project: NotesProject) => void;
   openProductDialog: (space: FourSpaceWorkspaceId, project: NotesProject) => void;
+  markChatRootDead: (environmentId: EnvironmentId, root: string) => void;
   closeDialog: () => void;
 }
 
@@ -36,6 +39,7 @@ interface FourspacesUiState {
 // "shown" flag lives in the persisted nav store instead.
 export const useFourspacesUiStore = create<FourspacesUiState>()((set) => ({
   dialog: null,
+  deadChatRootsByEnvironment: {},
   openImportDialog: (space) => set({ dialog: { mode: "import", space } }),
   openOrganizeDialog: (space) => set({ dialog: { mode: "organize", space } }),
   openNewDialog: (space, originProductId) =>
@@ -44,6 +48,17 @@ export const useFourspacesUiStore = create<FourspacesUiState>()((set) => ({
     set({ dialog: { mode: "notes", space, notesProject: project } }),
   openProductDialog: (space, project) =>
     set({ dialog: { mode: "product", space, notesProject: project } }),
+  markChatRootDead: (environmentId, root) =>
+    set((state) => {
+      const current = state.deadChatRootsByEnvironment[environmentId] ?? [];
+      if (current.includes(root)) return {};
+      return {
+        deadChatRootsByEnvironment: {
+          ...state.deadChatRootsByEnvironment,
+          [environmentId]: [...current, root],
+        },
+      };
+    }),
   closeDialog: () => set({ dialog: null }),
 }));
 
