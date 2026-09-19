@@ -2,11 +2,10 @@
 
 ## Current state
 
-- `Fourspaces/` är en personlig fork av `pingdotgg/t3code` (full historik; 2 egna commits på `main`, ej pushat).
-- FAS 1 (kartläggning) + FAS 2 (rail-nav + `/scheduled`) + FAS 3 (registry + filtrering + Chat-backing) klara och committade.
-- Inga T3-core-beteenden ändrade: providers, trådar, streaming, terminal, Git, checkpoints, settings, usage — allt återanvänt. Diffen är additiv: nya filer under `*/fourspaces/*` + små seams.
-- Standard-root i bruk: `/Volumes/Mr_Jones/T3/` (Chat/Experiments/Projects/Products/); Chat-backing auto-skapad på `/Volumes/Mr_Jones/T3/Chat`.
-- Verktygskedja: isolerad Node v24.21.0 (`~/.local/node-t3`), `pnpm 11.10.0`, `vp 0.3.3`, `bun 1.4.2`. `.env` med dev-token (gitignored).
+- Personlig fork: `https://github.com/reasonablysanesolutions/t3code`, vårt arbete på branchen **`fourspaces`** (= lokal main `45451e1e9`, 10 egna commits). Forkens `main` är orörd upstream (medvetet: vanlig `main`-push avvisades pga divergerad historik, ingen force-push, ingen blind merge av 2 månaders upstream).
+- Remotes: `origin` = upstream (pingdotgg, rör aldrig med push), `fork` = egen fork.
+- FAS 2–11 klara och committade lokalt + pushade. Arbetsträd rent (enda untracked: `design.fourspaces-reference.png`).
+- Acceptance §68 genomgången 2026-09-19: navigation, new, import (keep/move/copy + organize), portabilitet, modeller, notes, product-workflow, promote, usage, scheduled — allt verifierat (se nedan). Kvarvarande luckor: live OpenRouter-nyckel, daily-tick över dygn, explicita Project-kind-klick (samma kodvägar som verifierade kinds).
 
 ## Architecture (T3, verifierat lokalt)
 
@@ -27,6 +26,11 @@
 
 ## Recent meaningful changes
 
+- ACCEPTANCE §68 (2026-09-19) + FORK-PUSH. Allt grönt utom dokumenterade luckor:
+  - Promote Project→Product type-only (mapp orörd, kind=product) + jobb-edit (titel+prompt) via UI, 0 pageerrors.
+  - Portabilitet (§19-testet): `codex exec --cd /tmp/fs-accept/portable --sandbox read-only` läste NOTES.md och svarade — ingen export/konvertering, filen orörd.
+  - Tick end-to-end: once-jobb avfyrades på schema utan manuell hjälp; agenten svarade "tick-ok"; run completed på ~7s; jobbet inaktiverades (once-semantik). Acceptans-jobben bortstädade ur DB efteråt.
+  - Push: `git push fork main:fourspaces` (ingen force, ingen merge). Commit `45451e1e9` bekräftad på GitHub.
 - FAS 11 klar (2026-09-18): Scheduled — jobb som kör riktiga T3-turns.
   - Kontrakt: schedule (once/daily/weekly/interval + tz), jobb, runs, CRUD-inputs, list-wrappers.
   - Server: migration 054 (jobs+runs-tabeller), `ScheduledJobs`-tjänst (CRUD, tick var 30s via forkParked, claim-före-execute, sweep av running via latestTurn + 2h-timeout, once inaktiveras efter körning), exekvering via engine.dispatch (thread.create vid behov + thread.turn.start — vanliga turns med checkpoints/streaming), layer i ReactorLayerLive + 6 RPC:er + server.test.ts-mock.
@@ -95,6 +99,6 @@
 
 ## Next steps
 
-1. NÄR ALLA FASER ÄR KLARA (användarens beslut 2026-09-18): skapa personlig GitHub-fork + remote + pusha. Tills dess: endast lokala commits, aldrig pusha till upstream.
-2. Acceptance-genomgång mot §68 (V1-kriterier): Promote Project↔Product explicit, OpenRouter med riktig nyckel, scheduled daily-tick över tid, portabilitet (annan harness mot samma katalog).
-3. Polish/edge: scheduled-jobb mot borttagna projekt (felrad finns), approve-stall (2h-timeout finns), mobil-ytor för spaces.
+1. Frivillig rest-verifiering: OpenRouter med riktig nyckel; daily-tick över dygn; explicita Project-kind-klick i New/Import (samma kodvägar).
+2. Upstream-hygien: `git fetch origin`, merga `origin/main` → `fourspaces` vid behov (lös ev. konflikter i Sidebar/ws varsamt), pusha `fork fourspaces`. Pusha ALDRIG till `origin`. Sätt gärna `fourspaces` som default-branch på GitHub.
+3. Dev-scratch i `~/.t3/dev` (testprojekt, trådar) är ofarligt men kan nollställas genom att ta bort katalogen om en ren demo behövs.
