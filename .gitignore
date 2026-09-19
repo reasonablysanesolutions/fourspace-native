@@ -2,6 +2,10 @@ node_modules
 .bun
 .turbo
 .DS_Store
+.build/
+*.app
+macos/.build/
+.swiftpm/
 *.log
 *.tsbuildinfo
 apps/*/dist

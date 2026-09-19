@@ -1,4 +1,43 @@
-# Project Memory — Four Spaces (personlig T3-fork)
+# Project Memory
+
+This file is the shared memory for **Four Space Native**, the native macOS app
+in this repository. The Electron product's history is preserved at the bottom
+under "Appendix: Four Spaces Electron memory".
+
+## Four Space Native — current state
+
+- Repo: fork `reasonablysanesolutions/fourspace-native` of `pingdotgg/t3code`.
+  `origin` = fork, `upstream` = T3 original (never push). Branch: `native`.
+- Real fork created via GitHub API; local history cloned from the Fourspaces
+  Electron fork so product-layer commits are preserved.
+- Native app at `macos/` (SwiftPM, `swift-tools-version: 6.0`, macOS 15+).
+  Builds and launches. Three-column SwiftUI shell: rail (Chat/Experiment/
+  Project/Product + Scheduled + Settings), content column, detail column.
+- Build: `macos/scripts/build-app.sh`, run `open macos/.build/FourspaceNative.app`.
+- Docs: `FOURSPACE-MIGRATION.md` (plan, capability map, decisions),
+  `ARCHITECTURE.md` (actual implementation).
+- Originals are read-only and untouched: Electron at
+  `/Volumes/Mr_Jones/Projekt/appar-macos/Fourspaces` (HEAD `1d2ae7fb7`, has
+  pre-existing uncommitted changes — do not touch), and `pingdotgg/t3code`.
+
+## Key decisions
+
+- Reuse the T3 server as the harness engine (separate service over typed
+  WebSocket). Do not reimplement providers/sessions/tools in Swift.
+- Four Spaces classification and structure are native; a Project is a plain
+  folder on disk. No lock-in.
+- Native app lives in `macos/`; repo-root `native/` is T3's vendored
+  read-only references, leave alone.
+
+## Next steps
+
+1. Phase 3: flesh out the shell — proper rail styling/menu commands, content
+   lists, window/toolbar polish.
+2. Phase 4: wire Chat to a T3 server (spawn/attach, WS client, streaming).
+
+---
+
+# Appendix: Four Spaces Electron memory (read-only reference)
 
 ## Current state
 
