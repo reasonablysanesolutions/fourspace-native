@@ -47,7 +47,7 @@ import {
   timingSafeEqualBase64Url,
 } from "../auth/utils.ts";
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
-import { parseAttachmentFileExtension, resolveAttachmentPathById } from "../attachmentStore.ts";
+import { parseAttachmentFileExtension, resolveAttachmentAssetPath } from "../attachmentStore.ts";
 import * as ServerConfig from "../config.ts";
 import * as ProjectFaviconResolver from "../project/ProjectFaviconResolver.ts";
 import * as WorkspacePaths from "../workspace/WorkspacePaths.ts";
@@ -109,6 +109,8 @@ const AssetClaimsSchema = Schema.Union([
     version: Schema.Literal(1),
     kind: Schema.Literal("attachment"),
     attachmentId: Schema.String,
+    /** Workspace `uploads/` dir minted from, so downloads find scoped files. */
+    workspaceRoot: Schema.optionalKey(Schema.String),
     /** Decided at mint time. Absent tokens (from before this field) serve
         inline, which is only ever the image case. */
     download: Schema.optionalKey(Schema.Boolean),
@@ -520,9 +522,10 @@ export const issueAssetUrl = Effect.fn("AssetAccess.issueAssetUrl")(function* (i
     }
     case "attachment": {
       const config = yield* ServerConfig.ServerConfig;
-      const attachmentPath = resolveAttachmentPathById({
+      const attachmentPath = resolveAttachmentAssetPath({
         attachmentsDir: config.attachmentsDir,
         attachmentId: input.resource.attachmentId,
+        ...(input.resource.workspaceRoot ? { workspaceRoot: input.resource.workspaceRoot } : {}),
       });
       if (!attachmentPath) {
         return yield* new AssetAttachmentNotFoundError({
@@ -548,6 +551,9 @@ export const issueAssetUrl = Effect.fn("AssetAccess.issueAssetUrl")(function* (i
         version: 1,
         kind: "attachment",
         attachmentId: input.resource.attachmentId,
+        ...(input.resource.workspaceRoot !== undefined
+          ? { workspaceRoot: input.resource.workspaceRoot }
+          : {}),
         ...(isGenericFile && !isVideo && inlinePreviewMimeType === undefined
           ? { download: true }
           : {}),
@@ -740,9 +746,10 @@ export const resolveAsset = Effect.fn("AssetAccess.resolveAsset")(function* (
 
   if (claims.kind === "attachment") {
     const config = yield* ServerConfig.ServerConfig;
-    const attachmentPath = resolveAttachmentPathById({
+    const attachmentPath = resolveAttachmentAssetPath({
       attachmentsDir: config.attachmentsDir,
       attachmentId: claims.attachmentId,
+      ...(claims.workspaceRoot ? { workspaceRoot: claims.workspaceRoot } : {}),
     });
     if (!attachmentPath) return null;
     const fileSystem = yield* FileSystem.FileSystem;

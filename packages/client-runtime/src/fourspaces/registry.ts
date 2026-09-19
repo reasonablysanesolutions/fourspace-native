@@ -46,8 +46,14 @@ export interface FourSpacesEnvironmentState {
 
 export type FourSpacesRegistry = Record<string, FourSpacesEnvironmentState>;
 
-export const DEFAULT_FOURSPACES_ROOT = "~/T3";
+export const DEFAULT_FOURSPACES_ROOT = "/Volumes/Mr_Jones/T3";
 export const CHAT_WORKSPACE_DIRNAME = "Chat";
+
+/** Chat directory tails adopted under an unset default root (plus legacy `~/T3`). */
+const CHAT_ROOT_TAILS: ReadonlyArray<string> = [
+  `/${DEFAULT_FOURSPACES_ROOT.replace(/^\/+/, "")}/${CHAT_WORKSPACE_DIRNAME}`,
+  `T3/${CHAT_WORKSPACE_DIRNAME}`,
+];
 
 export function emptyEnvironmentState(): FourSpacesEnvironmentState {
   return {
@@ -269,14 +275,14 @@ export function resolveChatProjectId(input: {
   );
   if (exact) return exact.id;
   if (input.state.defaultRoot != null) return null;
-  const tail =
-    `/${DEFAULT_FOURSPACES_ROOT.replace(/^~\//, "")}/${CHAT_WORKSPACE_DIRNAME}`.toLowerCase();
   return (
     candidates.find((project) =>
-      normalizeProjectPathForComparison(project.workspaceRoot)
-        .replaceAll("\\", "/")
-        .toLowerCase()
-        .endsWith(tail),
+      CHAT_ROOT_TAILS.some((tail) =>
+        normalizeProjectPathForComparison(project.workspaceRoot)
+          .replaceAll("\\", "/")
+          .toLowerCase()
+          .endsWith(tail.toLowerCase()),
+      ),
     )?.id ?? null
   );
 }

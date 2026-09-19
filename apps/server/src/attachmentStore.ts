@@ -21,6 +21,24 @@ const ATTACHMENT_ID_PATTERN = new RegExp(
   "i",
 );
 
+/** Subdirectory of a workspace root holding its uploads (e.g. `<root>/uploads`). */
+export const WORKSPACE_UPLOADS_DIRNAME = "uploads";
+
+export function resolveWorkspaceUploadsDir(workspaceRoot: string): string {
+  return NodePath.join(workspaceRoot, WORKSPACE_UPLOADS_DIRNAME);
+}
+
+/** Uploads dir hinted by a message attachment, when the turn tagged one. */
+function scopedUploadsDirFor(attachment: ChatAttachment): string | null {
+  // `in`-narrowing: the unknown catch-all member defeats discriminant checks.
+  const root =
+    "workspaceRoot" in attachment && typeof attachment.workspaceRoot === "string"
+      ? attachment.workspaceRoot
+      : null;
+  if (!root || root.trim().length === 0) return null;
+  return resolveWorkspaceUploadsDir(root);
+}
+
 export const PENDING_ATTACHMENT_THREAD_SEGMENT = "pending";
 const PENDING_ATTACHMENT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const PARTIAL_UPLOAD_MAX_AGE_MS = 60 * 60 * 1000;
@@ -125,6 +143,13 @@ export function resolveAttachmentPath(input: {
   if (!relativePath) {
     return null;
   }
+  // Workspace-scoped uploads resolve inside the workspace first (guarded by
+  // the same containment check); everything else keeps the shared dir.
+  const scoped = scopedUploadsDirFor(input.attachment);
+  if (scoped) {
+    const hit = resolveAttachmentRelativePath({ attachmentsDir: scoped, relativePath });
+    if (hit && NodeFS.existsSync(hit)) return hit;
+  }
   return resolveAttachmentRelativePath({
     attachmentsDir: input.attachmentsDir,
     relativePath,
@@ -157,6 +182,29 @@ export function resolveAttachmentPathById(input: {
     }
   }
   return null;
+}
+
+/**
+ * Resolve an attachment by id, preferring a workspace `uploads/` dir when
+ * the caller holds one (asset URLs, verification, deletes). Falls back to
+ * the shared dir so untagged and legacy uploads keep resolving.
+ */
+export function resolveAttachmentAssetPath(input: {
+  readonly attachmentsDir: string;
+  readonly attachmentId: string;
+  readonly workspaceRoot?: string | null;
+}): string | null {
+  if (input.workspaceRoot) {
+    const scoped = resolveAttachmentPathById({
+      attachmentsDir: resolveWorkspaceUploadsDir(input.workspaceRoot),
+      attachmentId: input.attachmentId,
+    });
+    if (scoped) return scoped;
+  }
+  return resolveAttachmentPathById({
+    attachmentsDir: input.attachmentsDir,
+    attachmentId: input.attachmentId,
+  });
 }
 
 export type AttachmentClaimPlan =

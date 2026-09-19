@@ -305,6 +305,8 @@ export const ChatImageAttachment = Schema.Struct({
   mimeType: TrimmedNonEmptyString.check(Schema.isMaxLength(100), Schema.isPattern(/^image\//i)),
   sizeBytes: NonNegativeInt.check(Schema.isLessThanOrEqualTo(PROVIDER_SEND_TURN_MAX_IMAGE_BYTES)),
   source: Schema.optional(SnapShotSource),
+  /** Workspace directory whose `uploads/` holds this file, when scoped. */
+  workspaceRoot: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(1024))),
 });
 export type ChatImageAttachment = typeof ChatImageAttachment.Type;
 
@@ -320,6 +322,8 @@ export const ChatFileAttachment = Schema.Struct({
     Schema.isGreaterThanOrEqualTo(1),
     Schema.isLessThanOrEqualTo(PROVIDER_SEND_TURN_MAX_FILE_BYTES),
   ),
+  /** Workspace directory whose `uploads/` holds this file, when scoped. */
+  workspaceRoot: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(1024))),
   /** Clipboard text folded by a client. Providers keep these path-only so the
       agent can inspect the file selectively instead of eagerly spending the
       same context the fold is intended to preserve. */

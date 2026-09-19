@@ -13,6 +13,7 @@ import {
   type WorkspaceImportMode,
 } from "@t3tools/client-runtime/fourspaces/relocate";
 import {
+  DEFAULT_FOURSPACES_ROOT,
   resolveDefaultImportMode,
   resolveDefaultRoot,
   selectOrganizedWorkspaces,
@@ -241,7 +242,7 @@ function ImportFolderPanel({
   const platform = environment?.serverConfig?.environment.platform.os ?? "";
   const registryState =
     environmentId != null ? selectEnvironmentRegistry(registryStore, environmentId) : null;
-  const defaultRoot = registryState ? resolveDefaultRoot(registryState) : "~/T3";
+  const defaultRoot = registryState ? resolveDefaultRoot(registryState) : DEFAULT_FOURSPACES_ROOT;
   const mode = modeOverride ?? (registryState ? resolveDefaultImportMode(registryState) : "keep");
   const effectiveFolderName = folderName ?? basenameForImport(sourcePath);
   const destination =
@@ -593,7 +594,7 @@ function OrganizePanel({
 
   const registryState =
     environmentId != null ? selectEnvironmentRegistry(registryStore, environmentId) : null;
-  const defaultRoot = registryState ? resolveDefaultRoot(registryState) : "~/T3";
+  const defaultRoot = registryState ? resolveDefaultRoot(registryState) : DEFAULT_FOURSPACES_ROOT;
   const unsorted = useMemo(
     () =>
       environmentId != null && registryState

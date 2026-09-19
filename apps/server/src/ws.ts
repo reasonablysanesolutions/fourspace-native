@@ -3132,7 +3132,7 @@ const makeWsRpcLayer = (
         [WS_METHODS.attachmentsDelete]: (input) =>
           observeRpcEffect(
             WS_METHODS.attachmentsDelete,
-            deletePendingAttachment(input.attachmentId),
+            deletePendingAttachment(input.attachmentId, input.workspaceRoot),
             { "rpc.aggregate": "workspace" },
           ),
         [WS_METHODS.agentSessionsScan]: () =>

@@ -3,7 +3,7 @@ import {
   type ChatAttachment,
   type EnvironmentId,
 } from "@t3tools/contracts";
-import { parseScopedThreadKey } from "@t3tools/client-runtime/environment";
+import { parseScopedThreadKey, scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { resolveAssetUrl } from "@t3tools/client-runtime/state/assets";
 import {
   deletePendingAttachmentUpload,
@@ -23,6 +23,7 @@ import {
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { assetEnvironment } from "../state/assets";
 import { attachmentEnvironment } from "../state/attachments";
+import { readProject, readThreadShell } from "../state/entities";
 import { readPreparedConnection } from "../state/session";
 import type { AttachmentUploadState, ReadyAttachmentUpload } from "./attachmentUploadState";
 
@@ -122,23 +123,93 @@ function resolveCurrentFileDraftTarget(job: UploadJob): ComposerThreadTarget | u
  * not depend on a mounted composer to survive. `setFileUpload` no-ops when
  * the draft row is gone or already carries these ids.
  */
-function stampDraftFileUpload(job: UploadJob, attachmentId: string): void {
+function stampDraftFileUpload(
+  job: UploadJob,
+  attachmentId: string,
+  workspaceRoot: string | null,
+): void {
   const draftTarget = resolveCurrentFileDraftTarget(job);
   if (draftTarget === undefined) {
     return;
   }
   useComposerDraftStore
     .getState()
-    .setFileUpload(draftTarget, job.image.id, job.environmentId, attachmentId);
+    .setFileUpload(draftTarget, job.image.id, job.environmentId, attachmentId, workspaceRoot);
 }
 
-function deletePendingUpload(environmentId: EnvironmentId, attachmentId: string): void {
+function deletePendingUpload(
+  environmentId: EnvironmentId,
+  attachmentId: string,
+  workspaceRoot?: string | null,
+): void {
   deletePendingAttachmentUpload({
     registry: appAtomRegistry,
     remove: attachmentEnvironment.remove,
     environmentId,
     attachmentId,
+    ...(workspaceRoot ? { workspaceRoot } : {}),
   });
+}
+
+/**
+ * Workspace directory an upload belongs in, resolved from the owning draft:
+ * server threads via their project, local drafts via their session. Only the
+ * draft that currently owns the file counts, so a file moved mid-upload
+ * follows its new home. Null means the shared attachments dir (unknown
+ * owner, or lookup failed — uploads must never fail because of this hint).
+ */
+function resolveJobWorkspaceRoot(job: UploadJob): string | null {
+  try {
+    const store = useComposerDraftStore.getState();
+    for (const [key, draft] of Object.entries(store.draftsByThreadKey)) {
+      const owns =
+        draft.files.some((file) => file.id === job.image.id) ||
+        draft.images.some((image) => image.id === job.image.id);
+      if (!owns) {
+        continue;
+      }
+      const session = store.draftThreadsByThreadKey[key];
+      const threadRef = session ? null : parseScopedThreadKey(key);
+      const projectId = session?.projectId;
+      if (projectId && session.environmentId === job.environmentId) {
+        return (
+          readProject(scopeProjectRef(session.environmentId, projectId))?.workspaceRoot ?? null
+        );
+      }
+      if (threadRef && threadRef.environmentId === job.environmentId) {
+        const shell = readThreadShell(threadRef);
+        if (!shell) return null;
+        return (
+          readProject(scopeProjectRef(job.environmentId, shell.projectId))?.workspaceRoot ?? null
+        );
+      }
+      return null;
+    }
+    return fallbackJobWorkspaceRoot(job);
+  } catch {
+    return null;
+  }
+}
+
+/** Last resort: the draft target the job started with (no move tracking). */
+function fallbackJobWorkspaceRoot(job: UploadJob): string | null {
+  try {
+    const target = job.draftTarget;
+    if (target === undefined) return null;
+    if (typeof target === "string") {
+      const session = useComposerDraftStore.getState().getDraftSession(target);
+      if (!session || session.environmentId !== job.environmentId) return null;
+      return (
+        readProject(scopeProjectRef(session.environmentId, session.projectId))?.workspaceRoot ??
+        null
+      );
+    }
+    const shell = readThreadShell(target);
+    if (!shell) return null;
+    return readProject(scopeProjectRef(job.environmentId, shell.projectId))?.workspaceRoot ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function uploadBytes(input: {
@@ -175,11 +246,16 @@ function uploadBytes(input: {
 
 async function runUpload(job: UploadJob): Promise<void> {
   if (job.persistedAttachmentId) {
+    // Persisted ids only exist for files (images keep bytes and re-upload),
+    // so the upload root is only known on file attachments.
+    const persistedRoot =
+      job.image.type === "file" ? (job.image.uploadWorkspaceRoot ?? null) : null;
     const verification = await verifyPersistedAttachmentUpload({
       registry: appAtomRegistry,
       createAssetUrl: assetEnvironment.createUrl,
       environmentId: job.environmentId,
       attachmentId: job.persistedAttachmentId,
+      workspaceRoot: persistedRoot,
     });
     if (job.cancelled) {
       return;
@@ -189,8 +265,9 @@ async function runUpload(job: UploadJob): Promise<void> {
         status: "ready",
         environmentId: job.environmentId,
         attachmentId: job.persistedAttachmentId,
+        workspaceRoot: persistedRoot,
       });
-      stampDraftFileUpload(job, job.persistedAttachmentId);
+      stampDraftFileUpload(job, job.persistedAttachmentId, persistedRoot);
       return;
     }
     if (verification.status === "missing" && !job.image.file && job.image.type === "file") {
@@ -255,6 +332,7 @@ async function runUpload(job: UploadJob): Promise<void> {
   }
 
   let lastStep = -1;
+  const workspaceRoot = resolveJobWorkspaceRoot(job);
   const result = await runAttachmentUploadCycle({
     registry: appAtomRegistry,
     createUploadUrl: attachmentEnvironment.createUploadUrl,
@@ -265,6 +343,7 @@ async function runUpload(job: UploadJob): Promise<void> {
       name: job.image.name,
       mimeType,
       sizeBytes: file.size,
+      ...(workspaceRoot ? { workspaceRoot } : {}),
     },
     resolveUploadUrl: (relativeUrl) => {
       const connection = readPreparedConnection(job.environmentId);
@@ -309,10 +388,15 @@ async function runUpload(job: UploadJob): Promise<void> {
       status: "ready",
       environmentId: job.environmentId,
       attachmentId: result.attachmentId,
+      workspaceRoot: result.workspaceRoot,
     });
-    stampDraftFileUpload(job, result.attachmentId);
+    stampDraftFileUpload(job, result.attachmentId, result.workspaceRoot);
     if (job.previous) {
-      deletePendingUpload(job.previous.environmentId, job.previous.attachmentId);
+      deletePendingUpload(
+        job.previous.environmentId,
+        job.previous.attachmentId,
+        job.previous.workspaceRoot,
+      );
     }
     return;
   }
@@ -458,7 +542,7 @@ function cancelAttachmentUpload(imageId: string): void {
   }
   job.abort?.();
   if (job.attachmentId) {
-    deletePendingUpload(job.environmentId, job.attachmentId);
+    deletePendingUpload(job.environmentId, job.attachmentId, resolveJobWorkspaceRoot(job));
   }
   job.resolveSettled();
 }
@@ -467,13 +551,17 @@ export function releaseAttachmentUpload(imageId: string): void {
   const upload = readAttachmentUpload(imageId);
   cancelAttachmentUpload(imageId);
   if (upload?.status === "ready") {
-    deletePendingUpload(upload.environmentId, upload.attachmentId);
+    deletePendingUpload(upload.environmentId, upload.attachmentId, upload.workspaceRoot);
   } else if (upload) {
     if (upload.status === "failed" && upload.attachmentId) {
       deletePendingUpload(upload.environmentId, upload.attachmentId);
     }
     if (upload.previous) {
-      deletePendingUpload(upload.previous.environmentId, upload.previous.attachmentId);
+      deletePendingUpload(
+        upload.previous.environmentId,
+        upload.previous.attachmentId,
+        upload.previous.workspaceRoot,
+      );
     }
   }
   clearUploadState(imageId);
@@ -483,6 +571,7 @@ export function releasePersistedAttachmentUpload(input: {
   readonly id: string;
   readonly environmentId: EnvironmentId;
   readonly attachmentId: string;
+  readonly workspaceRoot?: string | null;
 }): void {
   const upload = readAttachmentUpload(input.id);
   if (
@@ -502,7 +591,7 @@ export function releasePersistedAttachmentUpload(input: {
     // deletes ids it minted, so the persisted id still needs the delete below.
     releaseAttachmentUpload(input.id);
   }
-  deletePendingUpload(input.environmentId, input.attachmentId);
+  deletePendingUpload(input.environmentId, input.attachmentId, input.workspaceRoot ?? null);
 }
 
 export function retryAttachmentUpload(input: {
@@ -564,6 +653,7 @@ export function getUploadedAttachments(input: {
       mimeType: image.mimeType,
       sizeBytes: image.sizeBytes,
       ...(image.source ? { source: image.source } : {}),
+      ...(upload.workspaceRoot ? { workspaceRoot: upload.workspaceRoot } : {}),
     });
   }
   return attachments;
@@ -589,6 +679,7 @@ export function releaseDraftAttachment(
       id: attachment.id,
       environmentId: attachment.uploadEnvironmentId,
       attachmentId: attachment.uploadedAttachmentId,
+      ...(attachment.uploadWorkspaceRoot ? { workspaceRoot: attachment.uploadWorkspaceRoot } : {}),
     });
     // A failed re-upload after verification can hold a newer minted
     // attachment under the queue key. Release whatever is left so neither

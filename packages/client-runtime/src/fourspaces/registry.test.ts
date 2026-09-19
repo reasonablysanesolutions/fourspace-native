@@ -49,12 +49,12 @@ function titledProject(id: string, workspaceRoot: string, title: string) {
 }
 
 describe("fourspaces registry", () => {
-  it("starts empty with an unset default root", () => {
+  it("starts empty with the external-disk default root", () => {
     const state = emptyEnvironmentState();
     expect(state.entries).toEqual([]);
     expect(state.chatProjectId).toBeNull();
-    expect(resolveDefaultRoot(state)).toBe("~/T3");
-    expect(chatWorkspaceRootFor(resolveDefaultRoot(state))).toBe("~/T3/Chat");
+    expect(resolveDefaultRoot(state)).toBe("/Volumes/Mr_Jones/T3");
+    expect(chatWorkspaceRootFor(resolveDefaultRoot(state))).toBe("/Volumes/Mr_Jones/T3/Chat");
   });
 
   it("repairs persisted garbage instead of throwing", () => {
@@ -208,13 +208,16 @@ describe("fourspaces registry", () => {
     ).toBeNull();
   });
 
-  it("adopts a home-expanded chat root under the default layout", () => {
-    const projects = [project("p-chat", "/Users/me/T3/Chat")];
-    // Default root is ~/T3; the server stores /Users/me/T3/Chat, which never
-    // string-matches — the T3/Chat tail still adopts it.
+  it("adopts a chat root under the default layout", () => {
+    const projects = [project("p-chat", "/Volumes/Mr_Jones/T3/Chat")];
     expect(resolveChatProjectId({ projects, environmentId, state: emptyEnvironmentState() })).toBe(
       "p-chat",
     );
+    // Legacy ~/T3 chats still adopt through the T3/Chat tail.
+    const legacy = [project("p-old", "/Users/me/T3/Chat")];
+    expect(
+      resolveChatProjectId({ projects: legacy, environmentId, state: emptyEnvironmentState() }),
+    ).toBe("p-old");
     // An explicit custom root disables the tail heuristic: no false adoption.
     const custom: FourSpacesEnvironmentState = {
       ...emptyEnvironmentState(),

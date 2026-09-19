@@ -4,6 +4,8 @@ export type ReadyAttachmentUpload = {
   readonly status: "ready";
   readonly environmentId: EnvironmentId;
   readonly attachmentId: string;
+  /** Effective scoped root echoed by the server, null for the shared dir. */
+  readonly workspaceRoot: string | null;
 };
 
 export type AttachmentUploadState =

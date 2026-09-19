@@ -31,6 +31,8 @@ export const AssetResource = Schema.Union([
   }),
   Schema.TaggedStruct("attachment", {
     attachmentId: TrimmedNonEmptyString.check(Schema.isMaxLength(256)),
+    /** Workspace directory whose `uploads/` holds the file, when scoped. */
+    workspaceRoot: Schema.optionalKey(TrimmedNonEmptyString.check(Schema.isMaxLength(1024))),
     /** Display name and mime from the `ChatAttachment` the caller holds. The
         server bakes both into the signed URL so downloads carry the real
         filename and Content-Type. Absent on older clients, which fall back to
@@ -84,6 +86,9 @@ export type AssetCreateUrlResult = typeof AssetCreateUrlResult.Type;
 
 export const ATTACHMENT_UPLOAD_URL_TTL_MS = 10 * 60_000;
 
+/** Absolute workspace directory uploads may be scoped to (e.g. `<root>/uploads`). */
+const AttachmentWorkspaceRoot = TrimmedNonEmptyString.check(Schema.isMaxLength(1024));
+
 const ImageAttachmentCreateUploadUrlInput = Schema.Struct({
   type: Schema.optionalKey(Schema.Literal("image")),
   name: TrimmedNonEmptyString.check(Schema.isMaxLength(255)),
@@ -92,6 +97,7 @@ const ImageAttachmentCreateUploadUrlInput = Schema.Struct({
     Schema.isGreaterThanOrEqualTo(1),
     Schema.isLessThanOrEqualTo(PROVIDER_SEND_TURN_MAX_IMAGE_BYTES),
   ),
+  workspaceRoot: Schema.optional(AttachmentWorkspaceRoot),
 });
 
 const FileAttachmentCreateUploadUrlInput = Schema.Struct({
@@ -102,6 +108,7 @@ const FileAttachmentCreateUploadUrlInput = Schema.Struct({
     Schema.isGreaterThanOrEqualTo(1),
     Schema.isLessThanOrEqualTo(PROVIDER_SEND_TURN_MAX_FILE_BYTES),
   ),
+  workspaceRoot: Schema.optional(AttachmentWorkspaceRoot),
 });
 
 export const AttachmentCreateUploadUrlInput = Schema.Union([
@@ -114,11 +121,14 @@ export const AttachmentCreateUploadUrlResult = Schema.Struct({
   attachmentId: TrimmedNonEmptyString.check(Schema.isMaxLength(256)),
   relativeUrl: TrimmedNonEmptyString.check(Schema.isMaxLength(4096)),
   expiresAt: Schema.Number,
+  /** Effective scoped root, when the upload was accepted into a workspace. */
+  workspaceRoot: Schema.optional(AttachmentWorkspaceRoot),
 });
 export type AttachmentCreateUploadUrlResult = typeof AttachmentCreateUploadUrlResult.Type;
 
 export const AttachmentDeleteInput = Schema.Struct({
   attachmentId: TrimmedNonEmptyString.check(Schema.isMaxLength(256)),
+  workspaceRoot: Schema.optional(AttachmentWorkspaceRoot),
 });
 export type AttachmentDeleteInput = typeof AttachmentDeleteInput.Type;
 

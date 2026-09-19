@@ -76,12 +76,19 @@ export async function verifyPersistedAttachmentUpload<A, E>(input: {
   }) => Atom.Atom<AsyncResult.AsyncResult<A, E>>;
   readonly environmentId: EnvironmentId;
   readonly attachmentId: string;
+  readonly workspaceRoot?: string | null;
 }): Promise<PersistedAttachmentVerification> {
   const result = await executeAtomQuery(
     input.registry,
     input.createAssetUrl({
       environmentId: input.environmentId,
-      input: { resource: { _tag: "attachment", attachmentId: input.attachmentId } },
+      input: {
+        resource: {
+          _tag: "attachment",
+          attachmentId: input.attachmentId,
+          ...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+        },
+      },
     }),
     // `refresh` forces a server round trip: the asset URL query atom caches
     // results (SWR), so a retry right after a transient failure would
@@ -115,11 +122,18 @@ export function deletePendingAttachmentUpload<E>(input: {
   readonly remove: AttachmentRemoveCommand<E>;
   readonly environmentId: EnvironmentId;
   readonly attachmentId: string;
+  readonly workspaceRoot?: string;
 }): void {
   void runAtomCommand(
     input.registry,
     input.remove,
-    { environmentId: input.environmentId, input: { attachmentId: input.attachmentId } },
+    {
+      environmentId: input.environmentId,
+      input: {
+        attachmentId: input.attachmentId,
+        ...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+      },
+    },
     { reportFailure: false, reportDefect: false },
   );
 }
@@ -131,7 +145,12 @@ export interface AttachmentByteUpload {
 }
 
 export type AttachmentUploadCycleResult =
-  | { readonly status: "uploaded"; readonly attachmentId: string }
+  | {
+      readonly status: "uploaded";
+      readonly attachmentId: string;
+      /** Effective scoped root echoed by the server, null for the shared dir. */
+      readonly workspaceRoot: string | null;
+    }
   | { readonly status: "cancelled"; readonly attachmentId: string | null }
   | {
       readonly status: "failed";
@@ -204,7 +223,7 @@ export async function runAttachmentUploadCycle<E, RE>(input: {
   } catch (error) {
     return { status: "failed", step: "transfer", attachmentId, error };
   }
-  return { status: "uploaded", attachmentId };
+  return { status: "uploaded", attachmentId, workspaceRoot: minted.value.workspaceRoot ?? null };
 }
 
 /**

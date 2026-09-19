@@ -150,6 +150,8 @@ export interface ComposerFileAttachment extends Omit<ChatFileAttachment, "previe
   file: File | null;
   uploadedAttachmentId?: string;
   uploadEnvironmentId?: EnvironmentId;
+  /** Workspace `uploads/` dir holding the server copy, when scoped. */
+  uploadWorkspaceRoot?: string | null;
 }
 
 /**
@@ -209,6 +211,7 @@ export const PersistedComposerDraftFileAttachment = Schema.Struct({
   sizeBytes: Schema.Number,
   attachmentId: Schema.optionalKey(Schema.String),
   environmentId: Schema.optionalKey(EnvironmentId),
+  workspaceRoot: Schema.optionalKey(Schema.String),
   source: Schema.optional(PastedTextAttachmentSource),
 });
 export type PersistedComposerDraftFileAttachment = typeof PersistedComposerDraftFileAttachment.Type;
@@ -633,6 +636,7 @@ interface ComposerDraftStoreState {
     fileId: string,
     environmentId: EnvironmentId,
     attachmentId: string,
+    workspaceRoot?: string | null,
   ) => void;
   markFileUploadMissing: (
     threadRef: ComposerThreadTarget,
@@ -2154,6 +2158,9 @@ export function partializeComposerDraftStoreState(
                 ? {
                     attachmentId: file.uploadedAttachmentId,
                     environmentId: file.uploadEnvironmentId,
+                    ...(file.uploadWorkspaceRoot
+                      ? { workspaceRoot: file.uploadWorkspaceRoot }
+                      : {}),
                   }
                 : {}),
             })),
@@ -2434,7 +2441,13 @@ function toHydratedThreadDraft(
       // bytes, no server-side upload, only the metadata to tell the user
       // what to attach again.
       ...(file.attachmentId !== undefined && file.environmentId !== undefined
-        ? { uploadedAttachmentId: file.attachmentId, uploadEnvironmentId: file.environmentId }
+        ? {
+            uploadedAttachmentId: file.attachmentId,
+            uploadEnvironmentId: file.environmentId,
+            ...(file.workspaceRoot !== undefined
+              ? { uploadWorkspaceRoot: file.workspaceRoot }
+              : {}),
+          }
         : {}),
     })) ?? [];
 
@@ -3507,7 +3520,7 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
             return { draftsByThreadKey: nextDraftsByThreadKey };
           });
         },
-        setFileUpload: (threadRef, fileId, environmentId, attachmentId) => {
+        setFileUpload: (threadRef, fileId, environmentId, attachmentId, workspaceRoot) => {
           const threadKey = resolveComposerDraftKey(get(), threadRef) ?? "";
           if (threadKey.length === 0) {
             return;
@@ -3534,6 +3547,7 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
                           ...entry,
                           uploadedAttachmentId: attachmentId,
                           uploadEnvironmentId: environmentId,
+                          ...(workspaceRoot ? { uploadWorkspaceRoot: workspaceRoot } : {}),
                         }
                       : entry,
                   ),

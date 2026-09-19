@@ -19,7 +19,8 @@ import {
   createPendingAttachmentId,
   parseThreadSegmentFromAttachmentId,
   PENDING_ATTACHMENT_THREAD_SEGMENT,
-  resolveAttachmentPathById,
+  resolveAttachmentAssetPath,
+  resolveWorkspaceUploadsDir,
   sweepStalePendingAttachments,
 } from "../attachmentStore.ts";
 import { resolveAttachmentRelativePath } from "../attachmentPaths.ts";
@@ -32,6 +33,8 @@ import {
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as ServerConfig from "../config.ts";
 import { inferImageExtension } from "../imageMime.ts";
+import * as ProjectionSnapshotQuery from "../orchestration/Services/ProjectionSnapshotQuery.ts";
+import { normalizeProjectPathForComparison } from "@t3tools/shared/path";
 
 export const ATTACHMENT_UPLOAD_ROUTE_PREFIX = "/api/attachments/upload";
 
@@ -51,6 +54,8 @@ const AttachmentUploadClaims = Schema.Struct({
   mimeType: Schema.String,
   sizeBytes: Schema.Number,
   expiresAt: Schema.Number,
+  /** Validated workspace root at issue time; uploads land in its `uploads/`. */
+  workspaceRoot: Schema.optional(Schema.String),
 });
 export type AttachmentUploadClaims = typeof AttachmentUploadClaims.Type;
 
@@ -79,16 +84,25 @@ export const issueAttachmentUploadUrl = Effect.fn("AttachmentUpload.issueUrl")(f
   );
   const config = yield* ServerConfig.ServerConfig;
   const nowMs = yield* Clock.currentTimeMillis;
-  const previousSweep = lastPendingSweepByDirectory.get(config.attachmentsDir);
-  if (
-    previousSweep === undefined ||
-    nowMs - previousSweep >= PENDING_ATTACHMENT_SWEEP_INTERVAL_MS
-  ) {
-    lastPendingSweepByDirectory.set(config.attachmentsDir, nowMs);
-    const swept = sweepStalePendingAttachments({
-      attachmentsDir: config.attachmentsDir,
-      nowMs,
-    });
+  // A requested workspace root is only honored when it is a known active
+  // project directory — never a raw client path. Anything else falls back
+  // to the shared attachments dir instead of failing the upload.
+  const workspaceRoot = yield* resolveScopedWorkspaceRoot(input.workspaceRoot).pipe(
+    Effect.catchCause(() => Effect.succeed(null)),
+  );
+  const sweepDirs = workspaceRoot
+    ? [config.attachmentsDir, resolveWorkspaceUploadsDir(workspaceRoot)]
+    : [config.attachmentsDir];
+  for (const sweepDir of sweepDirs) {
+    const previousSweep = lastPendingSweepByDirectory.get(sweepDir);
+    if (
+      previousSweep !== undefined &&
+      nowMs - previousSweep < PENDING_ATTACHMENT_SWEEP_INTERVAL_MS
+    ) {
+      continue;
+    }
+    lastPendingSweepByDirectory.set(sweepDir, nowMs);
+    const swept = sweepStalePendingAttachments({ attachmentsDir: sweepDir, nowMs });
     if (swept.deleted > 0) {
       yield* Effect.logInfo("Removed expired attachment uploads.", { deleted: swept.deleted });
     }
@@ -109,6 +123,7 @@ export const issueAttachmentUploadUrl = Effect.fn("AttachmentUpload.issueUrl")(f
       mimeType: input.mimeType,
       sizeBytes: input.sizeBytes,
       expiresAt,
+      ...(workspaceRoot ? { workspaceRoot } : {}),
     }),
   );
 
@@ -116,7 +131,32 @@ export const issueAttachmentUploadUrl = Effect.fn("AttachmentUpload.issueUrl")(f
     attachmentId,
     relativeUrl: `${ATTACHMENT_UPLOAD_ROUTE_PREFIX}/${encodedPayload}.${signPayload(encodedPayload, secret)}`,
     expiresAt,
+    ...(workspaceRoot ? { workspaceRoot } : {}),
   };
+});
+
+/**
+ * Accept a client-requested workspace root only when it matches a known
+ * active project directory (compared normalized). Returns the server's
+ * canonical root, or null for anything else — uploads must never fail or
+ * stray because of this hint.
+ */
+const resolveScopedWorkspaceRoot = Effect.fn("AttachmentUpload.scopedRoot")(function* (
+  requested: string | undefined,
+) {
+  if (!requested || requested.trim().length === 0) return null;
+  // Optional dependency on purpose: unit-test layers and minimal contexts
+  // have no projections, and uploads must never fail because of this hint.
+  const snapshots = yield* Effect.serviceOption(ProjectionSnapshotQuery.ProjectionSnapshotQuery);
+  if (Option.isNone(snapshots)) return null;
+  const shells = yield* snapshots.value
+    .getProjectShells()
+    .pipe(Effect.catchCause(() => Effect.succeed([])));
+  const wanted = normalizeProjectPathForComparison(requested);
+  const match = shells.find(
+    (shell) => normalizeProjectPathForComparison(shell.workspaceRoot) === wanted,
+  );
+  return match ? match.workspaceRoot : null;
 });
 
 export const validateAttachmentUploadToken = Effect.fn("AttachmentUpload.validateToken")(function* (
@@ -166,12 +206,17 @@ export const storeAttachmentUpload = Effect.fn("AttachmentUpload.store")(functio
       ? attachmentFileExtension(claims.name)
       : inferImageExtension({ mimeType: claims.mimeType, fileName: claims.name });
   const relativePath = `${claims.attachmentId}${extension}`;
+  // Scoped uploads live in the workspace's own `uploads/` (signed at issue
+  // time against a known project root); everything else keeps the shared dir.
+  const baseDir = claims.workspaceRoot
+    ? resolveWorkspaceUploadsDir(claims.workspaceRoot)
+    : config.attachmentsDir;
   const finalPath = resolveAttachmentRelativePath({
-    attachmentsDir: config.attachmentsDir,
+    attachmentsDir: baseDir,
     relativePath,
   });
   const partPath = resolveAttachmentRelativePath({
-    attachmentsDir: config.attachmentsDir,
+    attachmentsDir: baseDir,
     relativePath: `${relativePath}.${NodeCrypto.randomUUID()}.part`,
   });
   if (!finalPath || !partPath) {
@@ -223,20 +268,22 @@ export const storeAttachmentUpload = Effect.fn("AttachmentUpload.store")(functio
 
 export const deletePendingAttachment = Effect.fn("AttachmentUpload.deletePending")(function* (
   attachmentId: string,
+  workspaceRoot?: string | null,
 ) {
   if (parseThreadSegmentFromAttachmentId(attachmentId) !== PENDING_ATTACHMENT_THREAD_SEGMENT) {
     return;
   }
 
   const config = yield* ServerConfig.ServerConfig;
-  const attachmentPath = resolveAttachmentPathById({
+  const fileSystem = yield* FileSystem.FileSystem;
+  const attachmentPath = resolveAttachmentAssetPath({
     attachmentsDir: config.attachmentsDir,
     attachmentId,
+    ...(workspaceRoot ? { workspaceRoot } : {}),
   });
   if (!attachmentPath) {
     return;
   }
-
-  const fileSystem = yield* FileSystem.FileSystem;
   yield* fileSystem.remove(attachmentPath, { force: true }).pipe(Effect.orElseSucceed(() => {}));
+  return;
 });

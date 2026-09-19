@@ -26,6 +26,11 @@
 
 ## Recent meaningful changes
 
+- UPLOADS PER WORKSPACE (2026-09-19): allt under externa disken + uploads i respektive workspace.
+  - Default root är nu `/Volumes/Mr_Jones/T3` (hårdkodat per spec §10-exemplet). Chat-tail-adoption behåller legacy `T3/Chat`.
+  - Uploads scopeas per workspace: kontrakt (workspaceRoot på upload-input/result/delete + attachment-taggar + asset-resource), claims signerar validerad root (måste matcha aktivt projekt, annars global fallback — upload misslyckas aldrig pga hinten), filer till `<root>/uploads/`, delad resolver (scoped-first + global fallback, noll läsar-ändringar), asset-URLs + verifiering + delete scoped-medvetna, klient deriverar root från ägande draft (tråd/session, move-aware) och taggar ready/submit/delete + draft-persistens.
+  - Fällor: unknown-catch-all saboterar discriminant-narrowing (använd `in`); exactOptionalPropertyTypes kräver truthy-spreads; serviceOption för snapshots; resolveCurrentFileDraftTarget är fil-only (images behöver egen draft-scan); Playwright-Chromium når inte sandboxad Electron-server (använd 127.0.0.1-bas eller tester); pairing-tokens är engångs.
+  - Verifierat: unit (scoped issue/store/resolve/delete + fallback + taggning), tsc/lint/knip rena, browser-smoke (PNG → Chat/uploads, inget nytt globalt, adapter svarade om bilden), 0 pageerrors.
 - HOTFIX (2026-09-19, `295cff4ff`, pushad): Chat-backing pekade på borttagen `~/T3/Chat` (egen smoke-städning som tog katalogen men lämnade projektet) → missing-folder-banner i Chat. Liket raderat via `project remove` (korrekt event, ej SQL). Guard tillagd: landing probar backing-rooten, vid klart saknad mapp droppas länken + roten exkluderas sessionsvis → nyskapande/adoption av levande projekt. Transienta fel länkar aldrig ur. Lärdom: städa aldrig en katalog som ett T3-projekt pekar på utan att ta bort projektet också.
 - ACCEPTANCE §68 (2026-09-19) + FORK-PUSH. Allt grönt utom dokumenterade luckor:
   - Promote Project→Product type-only (mapp orörd, kind=product) + jobb-edit (titel+prompt) via UI, 0 pageerrors.

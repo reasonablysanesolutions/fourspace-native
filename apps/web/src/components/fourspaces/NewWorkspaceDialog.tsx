@@ -7,6 +7,7 @@ import {
   sanitizeFolderName,
 } from "@t3tools/client-runtime/fourspaces/relocate";
 import {
+  DEFAULT_FOURSPACES_ROOT,
   resolveDefaultRoot,
   type FourSpaceKind,
 } from "@t3tools/client-runtime/fourspaces/registry";
@@ -149,7 +150,7 @@ function NewWorkspaceForm({
     resolvedEnvironmentId != null
       ? selectEnvironmentRegistry(registryStore, resolvedEnvironmentId)
       : null;
-  const defaultRoot = registryState ? resolveDefaultRoot(registryState) : "~/T3";
+  const defaultRoot = registryState ? resolveDefaultRoot(registryState) : DEFAULT_FOURSPACES_ROOT;
   const destination =
     resolvedEnvironmentId != null ? resolveImportDestination(defaultRoot, kind, name) : null;
   const originEntry = originProductId

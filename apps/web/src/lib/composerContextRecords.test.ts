@@ -101,6 +101,7 @@ describe("composerContextRecords", () => {
         status: "ready",
         environmentId,
         attachmentId: "uploaded-image",
+        workspaceRoot: null,
       }),
     ).toMatchObject({ attachmentId: "uploaded-image", contextId: "image_local-image" });
     const file = {

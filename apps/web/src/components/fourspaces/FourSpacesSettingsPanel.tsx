@@ -143,7 +143,7 @@ function DefaultRootRow({
             onKeyDown={(event) => {
               if (event.key === "Enter") commit(event.currentTarget.value);
             }}
-            placeholder="~/T3"
+            placeholder="/Volumes/Mr_Jones/T3"
             value={value}
           />
           <Button onClick={() => void browse()} size="xs" type="button" variant="outline">
