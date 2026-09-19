@@ -26,6 +26,7 @@
 
 ## Recent meaningful changes
 
+- HOTFIX (2026-09-19, `295cff4ff`, pushad): Chat-backing pekade på borttagen `~/T3/Chat` (egen smoke-städning som tog katalogen men lämnade projektet) → missing-folder-banner i Chat. Liket raderat via `project remove` (korrekt event, ej SQL). Guard tillagd: landing probar backing-rooten, vid klart saknad mapp droppas länken + roten exkluderas sessionsvis → nyskapande/adoption av levande projekt. Transienta fel länkar aldrig ur. Lärdom: städa aldrig en katalog som ett T3-projekt pekar på utan att ta bort projektet också.
 - ACCEPTANCE §68 (2026-09-19) + FORK-PUSH. Allt grönt utom dokumenterade luckor:
   - Promote Project→Product type-only (mapp orörd, kind=product) + jobb-edit (titel+prompt) via UI, 0 pageerrors.
   - Portabilitet (§19-testet): `codex exec --cd /tmp/fs-accept/portable --sandbox read-only` läste NOTES.md och svarade — ingen export/konvertering, filen orörd.
