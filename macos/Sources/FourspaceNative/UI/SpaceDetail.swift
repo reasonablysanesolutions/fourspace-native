@@ -7,6 +7,8 @@ struct SpaceDetail: View {
 
     var body: some View {
         switch selection {
+        case .space(.chat):
+            ChatView()
         case .space(let space):
             ContentUnavailableView {
                 Label(space.title, systemImage: space.symbol)

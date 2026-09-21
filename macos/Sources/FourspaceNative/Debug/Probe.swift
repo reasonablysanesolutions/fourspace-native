@@ -1,0 +1,104 @@
+import Foundation
+
+/// Headless round-trip against a T3 server. Reads configuration from the
+/// environment so it never hardcodes a credential:
+///   FOURSPACE_URL    e.g. http://127.0.0.1:4611
+///   FOURSPACE_TOKEN  bearer token issued by `t3 auth session issue --token-only`
+///   FOURSPACE_PROMPT optional prompt (defaults to a trivial one)
+enum Probe {
+    /// Unbuffered diagnostic output so a killed probe still shows progress.
+    static func log(_ message: String) {
+        FileHandle.standardError.write(Data((message + "\n").utf8))
+    }
+
+    static func run() async {
+        let environment = ProcessInfo.processInfo.environment
+        guard let urlString = environment["FOURSPACE_URL"], let url = URL(string: urlString) else {
+            log("probe: FOURSPACE_URL is required")
+            return
+        }
+        let token = environment["FOURSPACE_TOKEN"]
+        let prompt = environment["FOURSPACE_PROMPT"] ?? "Reply with exactly: fourspace-probe-ok"
+
+        let connection = T3Connection(baseURL: url, token: token)
+        do {
+            log("probe: connecting to \(urlString)")
+            try await connection.connect()
+            let config = try await connection.loadConfig()
+            log("probe: environment \(config.environmentId), cwd \(config.cwd)")
+
+            let providers = config.providers.filter { $0.isReady && !$0.models.isEmpty }
+            guard let provider = providers.first, let model = provider.models.first else {
+                log("probe: no ready provider with models")
+                return
+            }
+            log("probe: provider \(provider.instanceId) model \(model.slug)")
+
+            let root = (NSHomeDirectory() as NSString)
+                .appendingPathComponent("FourSpace/Probe/\(UUID().uuidString.prefix(8))")
+            let projectId = try await connection.createProject(
+                title: "Probe",
+                workspaceRoot: root,
+                createIfMissing: true
+            )
+            let threadId = try await connection.createThread(
+                projectId: projectId,
+                title: "Probe",
+                modelSelection: T3Connection.modelSelection(provider: provider, model: model)
+            )
+            log("probe: project \(projectId) thread \(threadId)")
+
+            var accumulated = ""
+            let stream = connection.subscribeThread(threadId: threadId)
+            try await Task.sleep(for: .milliseconds(250))
+
+            try await connection.startTurn(
+                threadId: threadId,
+                text: prompt,
+                modelSelection: T3Connection.modelSelection(provider: provider, model: model)
+            )
+            log("probe: turn started")
+
+            let deadline = Date().addingTimeInterval(120)
+            do {
+                outer: for try await item in stream {
+                    switch item["kind"]?.stringValue {
+                    case "snapshot":
+                        let messages = item["snapshot"]?["thread"]?["messages"]?.arrayValue ?? []
+                        if let last = messages.last(where: { $0["role"]?.stringValue == "assistant" }) {
+                            accumulated = last["text"]?.stringValue ?? accumulated
+                        }
+                        log("probe: snapshot with \(messages.count) messages")
+                    case "event":
+                        guard let event = item["event"],
+                              event["type"]?.stringValue == "thread.message-sent",
+                              let payload = event["payload"],
+                              payload["role"]?.stringValue == "assistant" else { continue }
+                        let text = payload["text"]?.stringValue ?? ""
+                        if payload["streaming"]?.boolValue == true {
+                            accumulated += text
+                        } else if !text.isEmpty {
+                            accumulated = text
+                        } else {
+                            log("probe: assistant complete")
+                            break outer
+                        }
+                    default:
+                        break
+                    }
+                    if Date() > deadline {
+                        log("probe: deadline reached")
+                        break outer
+                    }
+                }
+            } catch {
+                log("probe: stream error \(error.localizedDescription)")
+            }
+
+            log("probe: assistant text >>> \(accumulated)")
+            await connection.disconnect()
+        } catch {
+            log("probe: failed: \(error.localizedDescription)")
+        }
+    }
+}

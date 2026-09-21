@@ -13,11 +13,18 @@ under "Appendix: Four Spaces Electron memory".
 - Native app at `macos/` (SwiftPM, `swift-tools-version: 6.0`, macOS 15+).
   Builds and launches. Three-column SwiftUI shell: rail (Chat/Experiment/
   Project/Product + Scheduled + Settings), content column, detail column.
+- Phase 4 done: live Chat. `T3RpcClient` (actor) speaks Effect RPC JSON over
+  WebSocket (`Request`/`Ack`/`Chunk`/`Exit`), auth via `Authorization: Bearer`
+  on the `/ws` upgrade, token in Keychain. `T3Connection` builds
+  `project.create`/`thread.create`/`thread.turn.start` and streams
+  `orchestration.subscribeThread`. Verified end-to-end with Codex via
+  `--probe` (streamed `fourspace-probe-ok`).
 - Build: `macos/scripts/build-app.sh`, run `open macos/.build/FourspaceNative.app`.
+  Headless: `FOURSPACE_URL=… FOURSPACE_TOKEN=… macos/.build/debug/FourspaceNative --probe`.
 - Docs: `FOURSPACE-MIGRATION.md` (plan, capability map, decisions),
   `ARCHITECTURE.md` (actual implementation).
 - Originals are read-only and untouched: Electron at
-  `/Volumes/Mr_Jones/Projekt/appar-macos/Fourspaces` (HEAD `1d2ae7fb7`, has
+  `/Volumes/Mr_Jones/Projekt/appar-macos/Fourspaces` (HEAD `0459d531f`, has
   pre-existing uncommitted changes — do not touch), and `pingdotgg/t3code`.
 
 ## Key decisions
@@ -28,12 +35,24 @@ under "Appendix: Four Spaces Electron memory".
   folder on disk. No lock-in.
 - Native app lives in `macos/`; repo-root `native/` is T3's vendored
   read-only references, leave alone.
+- Dynamic `JSONValue` for the wire; typed models per phase where useful.
+- `@main` on a small `Entry` so the same client runs headless (`--probe`).
+
+## Known issues
+
+- Keychain prompt on dev builds when a credential was seeded by another
+  process (ad-hoc signature). Normal use (app writes its own item) does not
+  prompt.
+- Chat uses runtime mode `full-access` (no approval UI yet).
+- No session list / thread sidebar yet; Chat reuses its most recent thread.
 
 ## Next steps
 
-1. Phase 3: flesh out the shell — proper rail styling/menu commands, content
-   lists, window/toolbar polish.
-2. Phase 4: wire Chat to a T3 server (spawn/attach, WS client, streaming).
+1. Phase 5/6: provider + model selection polish, sessions/threads list and
+   persistence of per-space model defaults.
+2. Approvals / user-input handling for non-full-access modes.
+3. Phase 7: Projects + importing existing folders.
+
 
 ---
 
