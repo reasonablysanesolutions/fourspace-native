@@ -18,10 +18,15 @@ struct ProjectDetail: View {
                             .frame(width: 240)
                         Divider()
                         conversationColumn
+                        if showNotes {
+                            Divider()
+                            NotesPanel(project: project)
+                                .frame(minWidth: 280, idealWidth: 360, maxWidth: 560)
+                        }
                     }
                 }
-                .sheet(isPresented: $showNotes) {
-                    NotesSheet(project: project)
+                .task(id: project.id) {
+                    await projects.notes.open(project: project, harness: projects.harness)
                 }
             } else {
                 ContentUnavailableView(
@@ -52,12 +57,12 @@ struct ProjectDetail: View {
                 .foregroundStyle(.secondary)
             }
             Spacer()
-            Button {
-                showNotes = true
-            } label: {
+            Toggle(isOn: $showNotes) {
                 Label("Notes", systemImage: "note.text")
             }
+            .toggleStyle(.button)
             .controlSize(.small)
+            .help("Show notes beside the conversation")
             ModelPicker()
         }
         .padding(.horizontal, 16)

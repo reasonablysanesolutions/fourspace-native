@@ -218,6 +218,19 @@ actor T3Connection {
         ]))
     }
 
+    /// Immediate children of a workspace root as (path, kind) pairs.
+    func listEntryPaths(cwd: String) async throws -> [(path: String, kind: String)] {
+        let result = try await rpc.request(tag: "projects.listEntries", payload: .object([
+            "cwd": .string(cwd),
+            "directoryPath": .string(""),
+        ]))
+        return (result["entries"]?.arrayValue ?? []).compactMap { entry in
+            guard let path = entry["path"]?.stringValue,
+                  let kind = entry["kind"]?.stringValue else { return nil }
+            return (path, kind)
+        }
+    }
+
     /// Moves or copies a folder on the server host (cross-volume safe) via the
     /// Four Spaces relocation RPC. Returns the resulting path.
     func relocateWorkspace(sourcePath: String, destinationPath: String, mode: String) async throws -> String {

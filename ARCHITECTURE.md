@@ -154,18 +154,19 @@ project is recorded separately and hidden from kind spaces.
 
 ## Notes (Phase 7)
 
-A pretty editor over **`NOTES.md` in the workspace root**, opened from the
-Notes button in a project/experiment/product's header. The file is the source
-of truth: any editor or harness can read and write it, it versions like any
-other file, and losing Four Space changes nothing about it. Notes are never
-attached to prompts automatically.
+A pretty editor over **`NOTES.md` in the workspace root**, shown as a
+**right-hand panel beside the conversation** (toggled from the header). The
+file is the source of truth: any editor or harness can read and write it, it
+versions like any other file, and losing Four Space changes nothing about it.
+Notes are never attached to prompts automatically.
 
 Behaviour mirrors the Electron product:
 
-- Read once on open via `projects.readFile`; a missing `NOTES.md` starts empty
-  and is created on first save.
-- Any other read failure blocks editing, so an unreadable file is never
-  silently overwritten.
+- Read once when a project is selected via `projects.readFile`. A missing
+  `NOTES.md` starts empty and is created on first save. Because the server
+  reports a generic operation failure for a missing file, absence is verified
+  against `projects.listEntries`; an existing-but-unreadable file still blocks
+  editing.
 - Autosave 1.5 s after the last keystroke via `projects.writeFile`; last writer
   wins. Status shows Loading / New file / Edited / Saving / Saved / error.
 

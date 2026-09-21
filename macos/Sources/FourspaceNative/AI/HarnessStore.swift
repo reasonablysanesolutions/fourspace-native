@@ -190,12 +190,23 @@ final class HarnessStore {
     }
 
     /// Returns the file contents, or nil when the file does not exist.
+    ///
+    /// The server reports a generic operation failure for a missing file, so
+    /// when the message is not obviously "missing" we verify against the
+    /// directory listing: an absent file starts empty, an existing-but-
+    /// unreadable file still throws.
     func readFile(cwd: String, relativePath: String) async throws -> String? {
         guard let connection else { throw HarnessError.notConnected }
         do {
             return try await connection.readFile(cwd: cwd, relativePath: relativePath)
         } catch {
             if NotesFile.isMissingError(error) { return nil }
+            if let entries = try? await connection.listEntryPaths(cwd: cwd) {
+                let exists = entries.contains {
+                    $0.kind == "file" && $0.path.lowercased() == relativePath.lowercased()
+                }
+                if !exists { return nil }
+            }
             throw error
         }
     }

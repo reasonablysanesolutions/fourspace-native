@@ -44,7 +44,15 @@ enum Probe {
             // Notes mode: read + append + write NOTES.md in a workspace.
             if let cwd = environment["FOURSPACE_PROBE_NOTES"] {
                 var before: String?
-                do { before = try await connection.readFile(cwd: cwd, relativePath: "NOTES.md") } catch { before = nil }
+                do { before = try await connection.readFile(cwd: cwd, relativePath: "NOTES.md") } catch {
+                    before = nil
+                    log("probe: notes read error = \(error.localizedDescription)")
+                    if let entries = try? await connection.listEntryPaths(cwd: cwd) {
+                        let names = entries.prefix(5).map { "\($0.path)(\($0.kind))" }.joined(separator: ", ")
+                        log("probe: entries = [\(names)]")
+                        log("probe: notes present = \(entries.contains { $0.kind == "file" && $0.path.lowercased() == "notes.md" })")
+                    }
+                }
                 log("probe: notes before = \(before.map { "\($0.count) chars" } ?? "<missing>")")
                 let updated = (before ?? "") + "\nnotes-probe-\(Int(Date().timeIntervalSince1970))\n"
                 try await connection.writeFile(cwd: cwd, relativePath: "NOTES.md", contents: updated)
