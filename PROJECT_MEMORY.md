@@ -21,6 +21,11 @@ under "Appendix: Four Spaces Electron memory".
   thread, else create). `ChatThreadList` is the middle column; `ChatViewModel`
   persists provider/model/active-thread in UserDefaults. Verified end-to-end
   with Codex via `--probe`, including project/thread reuse across runs.
+- Phase 7 done: shared `HarnessStore` (one connection/server for all spaces),
+  `ConversationViewModel` + shared `MessageList`/`Composer`/`ModelPicker`, and
+  the Projects space: list, New Project (folder + name), Import Existing
+  (NSOpenPanel, never moves/copies the folder), project threads and
+  conversations.
 - Server lifecycle: the app starts its own T3 server on launch and stops it on
   quit (`ServerController` + `AppDelegate`). It attaches to a server already
   listening and never kills one it did not start. Base dir
@@ -59,10 +64,11 @@ under "Appendix: Four Spaces Electron memory".
 
 ## Next steps
 
-1. Approvals / user-input handling for non-full-access modes.
-2. Phase 7: Projects + importing existing folders (New/Import/Organize), with
-   the Four Spaces kind registry native.
-3. Live shell subscription so thread/project changes stream in.
+1. Four Spaces kind registry (experiment/project/product) native, with the
+   existing Import/Organize flows from the Electron product.
+2. Approvals / user-input handling for non-full-access modes.
+3. Live shell subscription so project/thread changes stream in.
+4. Phase 8: Files + Git + terminal for projects.
 
 ---
 

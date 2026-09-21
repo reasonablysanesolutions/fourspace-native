@@ -1,93 +1,44 @@
 import Foundation
 
-struct ChatMessage: Identifiable, Hashable, Sendable {
-    let id: String
-    var role: String
-    var text: String
-    var streaming: Bool
-}
-
-enum ChatConnectionState: Equatable {
-    case disconnected
-    case connecting
-    case connected
-    case failed(String)
-}
-
-/// Drives Chat: connection, provider/model selection, the thread list, and the
-/// live transcript for the selected thread.
+/// Chat space: the hidden Chat workspace and its thread list, over the shared
+/// `HarnessStore`.
 @MainActor
 @Observable
 final class ChatViewModel {
-    var serverURL: String
-    var token: String
-
-    var connectionState: ChatConnectionState = .disconnected
-    var providers: [T3Provider] = []
-    var selectedProviderId: String?
-    var selectedModelSlug: String?
+    let harness: HarnessStore
+    let conversation = ConversationViewModel()
 
     var threads: [T3ThreadShell] = []
     var activeThreadId: String?
-
-    var messages: [ChatMessage] = []
     var draft: String = ""
     var errorText: String?
 
-    private var connection: T3Connection?
     private var chatProjectId: String?
-    private var streamTask: Task<Void, Never>?
-    /// A token supplied via `FOURSPACE_TOKEN` is dev-only and never persisted.
-    private let tokenFromEnvironment: Bool
-
-    /// Owns a locally spawned T3 server for the app's lifetime.
-    private(set) var serverController: ServerController?
 
     private enum DefaultsKey {
-        static let serverURL = "fourspace.serverURL"
-        static let providerId = "fourspace.selectedProviderId"
-        static let modelSlug = "fourspace.selectedModelSlug"
         static let activeThreadId = "fourspace.activeThreadId"
     }
 
-    init() {
-        let defaults = UserDefaults.standard
-        let environment = ProcessInfo.processInfo.environment
-        serverURL = environment["FOURSPACE_URL"]
-            ?? defaults.string(forKey: DefaultsKey.serverURL)
-            ?? "http://127.0.0.1:4611"
-        if let envToken = environment["FOURSPACE_TOKEN"], !envToken.isEmpty {
-            token = envToken
-            tokenFromEnvironment = true
-        } else {
-            token = Keychain.get(account: "t3.bearerToken") ?? ""
-            tokenFromEnvironment = false
+    init(harness: HarnessStore) {
+        self.harness = harness
+        activeThreadId = UserDefaults.standard.string(forKey: DefaultsKey.activeThreadId)
+        conversation.onAssistantComplete = { [weak self] in
+            Task { await self?.refreshThreads() }
         }
-        selectedProviderId = defaults.string(forKey: DefaultsKey.providerId)
-        selectedModelSlug = defaults.string(forKey: DefaultsKey.modelSlug)
-        activeThreadId = defaults.string(forKey: DefaultsKey.activeThreadId)
     }
 
-    var availableProviders: [T3Provider] {
-        providers.filter { $0.isReady && !$0.models.isEmpty }
-    }
-
-    var selectedProvider: T3Provider? {
-        providers.first { $0.instanceId == selectedProviderId }
-    }
-
-    var selectedModel: T3Model? {
-        selectedProvider?.models.first { $0.slug == selectedModelSlug }
-    }
-
-    var hasStreamingMessage: Bool {
-        messages.contains { $0.streaming }
-    }
+    var connectionState: ConnectionState { harness.connectionState }
+    var availableProviders: [T3Provider] { harness.availableProviders }
+    var selectedProvider: T3Provider? { harness.selectedProvider }
+    var selectedModel: T3Model? { harness.selectedModel }
+    var serverController: ServerController? { harness.serverController }
+    var messages: [ChatMessage] { conversation.messages }
+    var hasStreamingMessage: Bool { conversation.isStreaming }
 
     var canSend: Bool {
-        connectionState == .connected && !hasStreamingMessage
+        harness.isConnected && !conversation.isStreaming
             && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && selectedModel != nil
+            && harness.selectedModel != nil
     }
 
     var activeThread: T3ThreadShell? {
@@ -97,83 +48,17 @@ final class ChatViewModel {
     // MARK: - Connection
 
     func connect() async {
-        guard let url = URL(string: serverURL.trimmingCharacters(in: .whitespaces)) else {
-            connectionState = .failed("Invalid server URL.")
-            return
-        }
-        connectionState = .connecting
-        errorText = nil
-        UserDefaults.standard.set(serverURL, forKey: DefaultsKey.serverURL)
-
-        do {
-            let controller = ServerController(baseURL: url)
-            let minted = try await controller.ensureRunning()
-            serverController = controller
-
-            let effectiveToken: String?
-            if let minted {
-                effectiveToken = minted
-            } else {
-                effectiveToken = token.isEmpty ? nil : token
-            }
-
-            if tokenFromEnvironment || minted != nil {
-                // Ephemeral credential; do not write it to the Keychain.
-            } else if token.isEmpty {
-                Keychain.delete(account: "t3.bearerToken")
-            } else {
-                Keychain.set(token, account: "t3.bearerToken")
-            }
-
-            let connection = T3Connection(baseURL: url, token: effectiveToken)
-            try await connection.connect()
-            let config = try await connection.loadConfig()
-            self.connection = connection
-            providers = config.providers
-            restoreSelection()
-            connectionState = .connected
-            await openChatWorkspace()
-        } catch {
-            connectionState = .failed(error.localizedDescription)
-            self.connection = nil
-        }
+        await harness.connect()
+        guard harness.isConnected else { return }
+        await openChatWorkspace()
     }
-
-    func disconnect() async {
-        streamTask?.cancel()
-        streamTask = nil
-        await connection?.disconnect()
-        connection = nil
-        connectionState = .disconnected
-        threads = []
-        messages = []
-        chatProjectId = nil
-    }
-
-    private func restoreSelection() {
-        if selectedProvider == nil || selectedModel == nil {
-            selectedProviderId = availableProviders.first?.instanceId
-            selectedModelSlug = availableProviders.first?.models.first?.slug
-        }
-    }
-
-    func selectModel(provider: T3Provider, model: T3Model) {
-        selectedProviderId = provider.instanceId
-        selectedModelSlug = model.slug
-        UserDefaults.standard.set(provider.instanceId, forKey: DefaultsKey.providerId)
-        UserDefaults.standard.set(model.slug, forKey: DefaultsKey.modelSlug)
-    }
-
-    // MARK: - Threads
 
     private func openChatWorkspace() async {
-        guard let connection, let provider = selectedProvider, let model = selectedModel else { return }
         do {
-            let opened = try await connection.openOrCreateWorkspace(
+            let opened = try await harness.openOrCreateWorkspace(
                 workspaceRoot: Self.chatRoot(),
                 projectTitle: "Chat",
-                threadTitle: "New Chat",
-                modelSelection: T3Connection.modelSelection(provider: provider, model: model)
+                threadTitle: "New Chat"
             )
             chatProjectId = opened.projectId
             await refreshThreads()
@@ -183,53 +68,44 @@ final class ChatViewModel {
                 persistActiveThread()
             }
             if let activeThreadId {
-                startStreaming(connection: connection, threadId: activeThreadId)
+                await conversation.open(threadId: activeThreadId, harness: harness)
             }
         } catch {
             errorText = error.localizedDescription
         }
     }
 
-    private func applyThreads(_ incoming: [T3ThreadShell]) {
-        threads = incoming.sorted { $0.updatedAt > $1.updatedAt }
-    }
+    // MARK: - Threads
 
-    /// Reloads the shell so generated titles and ordering stay current.
     func refreshThreads() async {
-        guard let connection, let projectId = chatProjectId else { return }
-        guard let shell = try? await connection.loadShell() else { return }
-        applyThreads(shell.threads.filter { $0.projectId == projectId })
+        guard let projectId = chatProjectId else { return }
+        guard let shell = try? await harness.loadShell() else { return }
+        threads = shell.threads
+            .filter { $0.projectId == projectId }
+            .sorted { $0.updatedAt > $1.updatedAt }
     }
 
     func newChat() async {
-        guard let connection, let projectId = chatProjectId,
-              let provider = selectedProvider, let model = selectedModel else {
-            return
-        }
+        guard let projectId = chatProjectId else { return }
         do {
-            let threadId = try await connection.createThread(
-                projectId: projectId,
-                title: "New Chat",
-                modelSelection: T3Connection.modelSelection(provider: provider, model: model)
-            )
+            let threadId = try await harness.createThread(projectId: projectId, title: "New Chat")
             threads.insert(
                 T3ThreadShell(id: threadId, projectId: projectId, title: "New Chat", updatedAt: T3Connection.isoNow()),
                 at: 0
             )
-            selectThread(threadId)
+            activeThreadId = threadId
+            persistActiveThread()
+            await conversation.open(threadId: threadId, harness: harness)
         } catch {
             errorText = error.localizedDescription
         }
     }
 
     func selectThread(_ id: String) {
-        guard id != activeThreadId || messages.isEmpty else { return }
+        guard id != activeThreadId || conversation.messages.isEmpty else { return }
         activeThreadId = id
         persistActiveThread()
-        messages = []
-        if let connection {
-            startStreaming(connection: connection, threadId: id)
-        }
+        Task { await conversation.open(threadId: id, harness: harness) }
     }
 
     private func persistActiveThread() {
@@ -240,10 +116,7 @@ final class ChatViewModel {
 
     func send() async {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, let connection,
-              let provider = selectedProvider, let model = selectedModel else {
-            return
-        }
+        guard !text.isEmpty, harness.isConnected, harness.selectedModel != nil else { return }
         draft = ""
         errorText = nil
 
@@ -253,95 +126,16 @@ final class ChatViewModel {
                 threadId = active
             } else {
                 guard let projectId = chatProjectId else { return }
-                threadId = try await connection.createThread(
-                    projectId: projectId,
-                    title: "New Chat",
-                    modelSelection: T3Connection.modelSelection(provider: provider, model: model)
-                )
+                threadId = try await harness.createThread(projectId: projectId, title: "New Chat")
                 activeThreadId = threadId
                 persistActiveThread()
-                startStreaming(connection: connection, threadId: threadId)
+                await conversation.open(threadId: threadId, harness: harness)
             }
-            try await connection.startTurn(
-                threadId: threadId,
-                text: text,
-                modelSelection: T3Connection.modelSelection(provider: provider, model: model)
-            )
+            try await harness.startTurn(threadId: threadId, text: text)
         } catch {
             errorText = error.localizedDescription
         }
     }
-
-    // MARK: - Streaming
-
-    private func startStreaming(connection: T3Connection, threadId: String) {
-        streamTask?.cancel()
-        streamTask = Task { [weak self] in
-            do {
-                for try await item in connection.subscribeThread(threadId: threadId) {
-                    guard let self else { return }
-                    self.handleStreamItem(item)
-                }
-            } catch {
-                self?.errorText = error.localizedDescription
-            }
-        }
-    }
-
-    private func handleStreamItem(_ item: JSONValue) {
-        switch item["kind"]?.stringValue {
-        case "snapshot":
-            if let thread = item["snapshot"]?["thread"] {
-                applySnapshot(thread)
-            }
-        case "event":
-            guard let event = item["event"] else { return }
-            if event["type"]?.stringValue == "thread.message-sent" {
-                applyMessageEvent(event["payload"])
-            }
-        default:
-            break
-        }
-    }
-
-    private func applySnapshot(_ thread: JSONValue) {
-        messages = (thread["messages"]?.arrayValue ?? []).compactMap { message in
-            guard let id = message["id"]?.stringValue else { return nil }
-            return ChatMessage(
-                id: id,
-                role: message["role"]?.stringValue ?? "assistant",
-                text: message["text"]?.stringValue ?? "",
-                streaming: message["streaming"]?.boolValue ?? false
-            )
-        }
-    }
-
-    private func applyMessageEvent(_ payload: JSONValue?) {
-        guard let payload, let id = payload["messageId"]?.stringValue else { return }
-        let role = payload["role"]?.stringValue ?? "assistant"
-        let text = payload["text"]?.stringValue ?? ""
-        let streaming = payload["streaming"]?.boolValue ?? false
-
-        if let index = messages.firstIndex(where: { $0.id == id }) {
-            if streaming {
-                messages[index].text += text
-                messages[index].streaming = true
-            } else {
-                if !text.isEmpty {
-                    messages[index].text = text
-                }
-                messages[index].streaming = false
-            }
-        } else {
-            messages.append(ChatMessage(id: id, role: role, text: text, streaming: streaming))
-        }
-
-        if !streaming, role == "assistant" {
-            Task { await refreshThreads() }
-        }
-    }
-
-    // MARK: - Helpers
 
     static func chatRoot() -> String {
         (NSHomeDirectory() as NSString).appendingPathComponent("FourSpace/Chat")

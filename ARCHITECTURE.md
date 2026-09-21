@@ -5,9 +5,8 @@ app grows; do not record plans here (see `FOURSPACE-MIGRATION.md`).
 
 ## Status
 
-Phase 5/6 complete plus server lifecycle management: provider/model selection
-with persistence, a live Chat thread list, session reuse, and the app starting
-and stopping its own T3 server.
+Phase 7 complete: the HarnessStore is shared, Projects can create and import
+plain folders, and project threads share the Chat conversation surface.
 
 ## Repository
 
@@ -36,8 +35,12 @@ macos/
       JSONValue.swift               dynamic JSON for the wire protocol
       T3RpcClient.swift             Effect RPC over WebSocket (JSON envelopes)
       T3Connection.swift            typed facade + orchestration commands
+      HarnessStore.swift            shared connection, providers, model, RPCs
     Chat/
-      ChatViewModel.swift           connect / send / stream state
+      ConversationViewModel.swift   streams one thread's transcript
+      ChatViewModel.swift           Chat space over the shared harness
+    Projects/
+      ProjectsViewModel.swift       project list, create/import, threads
     Security/
       Keychain.swift                generic-password Keychain wrapper
     Debug/
@@ -49,6 +52,11 @@ macos/
       SpaceDetail.swift             detail column
       ChatThreadList.swift          middle-column chat list
       ChatView.swift                live chat surface
+      HarnessConnectView.swift      shared connect form
+      ConversationPane.swift        shared MessageList + Composer
+      ModelPicker.swift             shared provider/model picker
+      ProjectsList.swift            project list + New Project sheet
+      ProjectDetail.swift           project threads + conversation
   scripts/
     build-app.sh                    builds and bundles FourspaceNative.app
 ```
@@ -85,14 +93,45 @@ the streamed assistant text. Verified against Codex (returns
 App      — entry point, scene, menu commands, lifecycle
 UI       — SwiftUI views; no protocol logic
 Domain   — spaces, kinds, entries, pure rules
-AI       — T3 wire client, connection facade, command builders
-Chat     — chat view model (connect, send, stream)
+AI       — T3 wire client, connection facade, shared HarnessStore
+Server   — local T3 server process lifecycle
+Chat     — conversation streaming + Chat space
+Projects — project list, create/import, project threads
 Security — Keychain
 ```
 
-Later phases add `Providers`, `Sessions`, `Experiments`, `Projects`,
-`Products`, `Agents`, `Tools`, `Files`, `Git`, `Browser`, `Scheduling`,
-`Usage`, `Persistence`.
+Later phases add `Experiments`, `Products`, `Agents`, `Tools`, `Files`,
+`Git`, `Browser`, `Scheduling`, `Usage`.
+
+## Shared harness (Phase 7)
+
+`HarnessStore` is created once at app launch and injected everywhere. It owns
+the server lifecycle, the single `T3Connection`, the provider catalog and the
+selected model, and exposes the orchestration calls (`loadShell`,
+`openOrCreateWorkspace`, `createProject`, `createThread`, `startTurn`,
+`subscribeThread`). `ChatViewModel` and `ProjectsViewModel` both depend on it,
+so there is one server and one session regardless of which space is open.
+
+`ConversationViewModel` streams exactly one thread and is reused by Chat and by
+project threads. `MessageList`, `Composer`, `ModelPicker` and
+`HarnessConnectView` are shared UI; a space never reimplements them.
+
+On launch `RootView` connects the harness, opens the Chat workspace and
+refreshes the project list.
+
+## Projects (Phase 7)
+
+- **Create New**: name + parent directory; the folder is created and registered
+  (`project.create` with `createWorkspaceRootIfMissing`).
+- **Import Existing**: a native `NSOpenPanel` picks a folder; it is registered
+  with its absolute path as the workspace root and
+  `createWorkspaceRootIfMissing: false`. The folder is **never moved or
+  copied**.
+- Selecting a project shows its root and threads; selecting or creating a
+  thread opens the shared conversation surface with the shared model picker.
+
+Project metadata lives in the T3 server's store; the folder on disk remains a
+normal folder openable by any other harness.
 
 ## Harness client (Phase 4)
 

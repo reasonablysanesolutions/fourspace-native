@@ -9,6 +9,8 @@ struct SpaceContentList: View {
             switch selection {
             case .space(.chat):
                 ChatThreadList()
+            case .space(.project):
+                ProjectsList()
             case .space(let space):
                 SpaceThreadPlaceholder(space: space)
             case .global(.scheduled):

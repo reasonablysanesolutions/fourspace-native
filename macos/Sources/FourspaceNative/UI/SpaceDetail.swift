@@ -9,6 +9,8 @@ struct SpaceDetail: View {
         switch selection {
         case .space(.chat):
             ChatView()
+        case .space(.project):
+            ProjectDetail()
         case .space(let space):
             ContentUnavailableView {
                 Label(space.title, systemImage: space.symbol)
