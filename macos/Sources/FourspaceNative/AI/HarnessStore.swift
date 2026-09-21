@@ -279,4 +279,17 @@ final class HarnessStore {
         guard let connection else { throw HarnessError.notConnected }
         return try await connection.request(tag: "fourspaces.getOpenRouterUsage", payload: .object([:]))
     }
+
+    func setOpenRouterKey(_ key: String) async throws {
+        guard let connection else { throw HarnessError.notConnected }
+        _ = try await connection.request(
+            tag: "fourspaces.setOpenRouterKey",
+            payload: .object(["key": .string(key)])
+        )
+    }
+
+    func clearOpenRouterKey() async throws {
+        guard let connection else { throw HarnessError.notConnected }
+        _ = try await connection.request(tag: "fourspaces.clearOpenRouterKey", payload: .object([:]))
+    }
 }

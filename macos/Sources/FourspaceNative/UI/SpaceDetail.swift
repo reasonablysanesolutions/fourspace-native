@@ -18,11 +18,7 @@ struct SpaceDetail: View {
             case .usage:
                 UsageView()
             case .settings:
-                ContentUnavailableView(
-                    destination.title,
-                    systemImage: destination.symbol,
-                    description: Text("Not implemented yet.")
-                )
+                SettingsView()
             }
         case nil:
             ContentUnavailableView(

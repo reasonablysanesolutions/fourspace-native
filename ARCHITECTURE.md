@@ -68,6 +68,7 @@ macos/
       NotesPanel.swift              NOTES.md side panel
       UsageView.swift               usage overview
       RailUsageBar.swift            compact rail usage indicator
+      SettingsView.swift            root, server, providers, OpenRouter
       ScheduledList.swift           scheduled jobs list
       ScheduledDetail.swift         job detail + run history
       ScheduledJobSheet.swift       create/edit job
@@ -161,6 +162,13 @@ project is recorded separately and hidden from kind spaces.
   a context menu classifies (Experiment/Project/Product/Unclassified) and links
   or unlinks a project to a Product. New projects adopt the kind of the space
   they were created in. A Product's detail lists the projects linked to it.
+
+## Settings (Phase 15)
+
+`SettingsView` covers the Four Space root (with a native folder picker), the
+USD→SEK rate, the server URL/status with disconnect/reconnect, the provider
+list with status and model counts, and the OpenRouter key (save/clear via
+`fourspaces.setOpenRouterKey`/`clearOpenRouterKey`).
 
 ## Scheduled (Phase 13)
 
