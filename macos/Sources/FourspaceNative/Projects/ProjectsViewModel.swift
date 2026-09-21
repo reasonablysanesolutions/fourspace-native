@@ -6,7 +6,11 @@ import Foundation
 @Observable
 final class ProjectsViewModel {
     let harness: HarnessStore
+    let registry: FourSpacesRegistry
     let conversation = ConversationViewModel()
+
+    /// Which kind space is showing. Filters the list via the registry.
+    var space: FourSpace = .project
 
     var projects: [T3ProjectShell] = []
     var threadsByProject: [String: [T3ThreadShell]] = [:]
@@ -16,15 +20,70 @@ final class ProjectsViewModel {
     var errorText: String?
     var isBusy = false
 
-    init(harness: HarnessStore) {
+    init(harness: HarnessStore, registry: FourSpacesRegistry) {
         self.harness = harness
+        self.registry = registry
         conversation.onAssistantComplete = { [weak self] in
             Task { await self?.refresh() }
         }
     }
 
+    var visibleProjects: [T3ProjectShell] {
+        projects.filter { registry.isVisible(projectId: $0.id, in: space) }
+    }
+
     var selectedProject: T3ProjectShell? {
         projects.first { $0.id == selectedProjectId }
+    }
+
+    var linkedProjects: [T3ProjectShell] {
+        guard let productId = selectedProjectId else { return [] }
+        return registry.linked(toProduct: productId, among: projects)
+    }
+
+    func kind(for project: T3ProjectShell) -> FourSpaceKind? {
+        registry.kind(for: project.id)
+    }
+
+    func setSpace(_ newSpace: FourSpace) {
+        guard newSpace != space else { return }
+        space = newSpace
+        if let selected = selectedProject, !registry.isVisible(projectId: selected.id, in: newSpace) {
+            selectedProjectId = nil
+            activeThreadId = nil
+            conversation.close()
+        }
+    }
+
+    func classify(_ kind: FourSpaceKind?, project: T3ProjectShell, originProductId: String? = nil) {
+        registry.setKind(kind, for: project, originProductId: originProductId)
+    }
+
+    var products: [T3ProjectShell] {
+        projects.filter { registry.kind(for: $0.id) == .product }
+    }
+
+    func originProduct(for project: T3ProjectShell) -> T3ProjectShell? {
+        guard let id = registry.originProductId(for: project.id) else { return nil }
+        return projects.first { $0.id == id }
+    }
+
+    func link(_ project: T3ProjectShell, toProduct product: T3ProjectShell) {
+        if registry.kind(for: project.id) == nil {
+            registry.setKind(.experiment, for: project)
+        }
+        registry.setOriginProduct(product.id, for: project)
+    }
+
+    func unlink(_ project: T3ProjectShell) {
+        registry.setOriginProduct(nil, for: project)
+    }
+
+    /// Newly created/imported projects adopt the kind of the space they were
+    /// created in.
+    private func classifyNewProject(_ id: String) {
+        guard let kind = space.kind, let project = projects.first(where: { $0.id == id }) else { return }
+        registry.setKind(kind, for: project)
     }
 
     var projectThreads: [T3ThreadShell] {
@@ -81,6 +140,7 @@ final class ProjectsViewModel {
                 createIfMissing: true
             )
             await refresh()
+            classifyNewProject(id)
             selectProject(id)
         } catch {
             errorText = error.localizedDescription
@@ -100,6 +160,7 @@ final class ProjectsViewModel {
                 createIfMissing: false
             )
             await refresh()
+            classifyNewProject(id)
             selectProject(id)
         } catch {
             errorText = error.localizedDescription

@@ -5,8 +5,8 @@ app grows; do not record plans here (see `FOURSPACE-MIGRATION.md`).
 
 ## Status
 
-Phase 7 complete: the HarnessStore is shared, Projects can create and import
-plain folders, and project threads share the Chat conversation surface.
+Phase 7 complete: shared harness, Projects (create/import), and the Four
+Spaces kind registry with classification and space filtering.
 
 ## Repository
 
@@ -29,6 +29,7 @@ macos/
       AppState.swift                @Observable top-level UI state
     Domain/
       FourSpace.swift               FourSpace, GlobalDestination, RailSelection
+      FourSpacesRegistry.swift      kind classification, persisted as JSON
     Server/
       ServerController.swift        spawn/attach/stop the T3 server, mint token
     AI/
@@ -118,6 +119,35 @@ project threads. `MessageList`, `Composer`, `ModelPicker` and
 
 On launch `RootView` connects the harness, opens the Chat workspace and
 refreshes the project list.
+
+## Four Spaces registry (Phase 7)
+
+`FourSpacesRegistry` classifies T3 projects as `experiment`, `project` or
+`product`. It is a **side system**: it never adds fields to T3's project model
+and never touches the project folder. `chat` is not a kind; the Chat backing
+project is recorded separately and hidden from kind spaces.
+
+- **Visibility rule** (faithful to the Electron product): a kind space shows
+  projects classified as that kind **plus unclassified projects**, so
+  organising never hides work. Chat shows only its backing project.
+- **Persistence**: `~/Library/Application Support/FourSpace/registry.json` —
+  small, documented, non-destructive, trivial to delete or recreate:
+
+  ```json
+  {
+    "version": 1,
+    "defaultRoot": "/Users/…/FourSpace",
+    "chatProjectId": "…",
+    "entries": [
+      { "projectId": "…", "workspaceRoot": "…", "kind": "experiment", "originProductId": null }
+    ]
+  }
+  ```
+
+- **UI**: the project row shows a kind badge (dashed circle when unclassified);
+  a context menu classifies (Experiment/Project/Product/Unclassified) and links
+  or unlinks a project to a Product. New projects adopt the kind of the space
+  they were created in. A Product's detail lists the projects linked to it.
 
 ## Projects (Phase 7)
 

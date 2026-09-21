@@ -6,6 +6,7 @@ import Foundation
 @Observable
 final class ChatViewModel {
     let harness: HarnessStore
+    let registry: FourSpacesRegistry
     let conversation = ConversationViewModel()
 
     var threads: [T3ThreadShell] = []
@@ -19,8 +20,9 @@ final class ChatViewModel {
         static let activeThreadId = "fourspace.activeThreadId"
     }
 
-    init(harness: HarnessStore) {
+    init(harness: HarnessStore, registry: FourSpacesRegistry) {
         self.harness = harness
+        self.registry = registry
         activeThreadId = UserDefaults.standard.string(forKey: DefaultsKey.activeThreadId)
         conversation.onAssistantComplete = { [weak self] in
             Task { await self?.refreshThreads() }
@@ -61,6 +63,7 @@ final class ChatViewModel {
                 threadTitle: "New Chat"
             )
             chatProjectId = opened.projectId
+            registry.setChatProject(opened.projectId)
             await refreshThreads()
 
             if activeThreadId == nil || !threads.contains(where: { $0.id == activeThreadId }) {

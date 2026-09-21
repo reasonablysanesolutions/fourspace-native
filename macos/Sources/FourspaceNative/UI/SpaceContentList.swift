@@ -9,10 +9,8 @@ struct SpaceContentList: View {
             switch selection {
             case .space(.chat):
                 ChatThreadList()
-            case .space(.project):
-                ProjectsList()
             case .space(let space):
-                SpaceThreadPlaceholder(space: space)
+                ProjectsList(space: space)
             case .global(.scheduled):
                 ScheduledPlaceholder()
             case .global(.settings):
@@ -25,20 +23,6 @@ struct SpaceContentList: View {
             }
         }
         .navigationSplitViewColumnWidth(min: 260, ideal: 320, max: 420)
-    }
-}
-
-private struct SpaceThreadPlaceholder: View {
-    let space: FourSpace
-
-    var body: some View {
-        List {
-            Section {
-                Text("No \(space.title.lowercased()) activity yet.")
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .navigationTitle(space.title)
     }
 }
 

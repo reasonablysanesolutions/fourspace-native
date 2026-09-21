@@ -40,6 +40,16 @@ enum FourSpace: String, CaseIterable, Identifiable, Hashable {
         case .product: .orange    // warm accent
         }
     }
+
+    /// The classification kind this space represents. Chat has none.
+    var kind: FourSpaceKind? {
+        switch self {
+        case .chat: nil
+        case .experiment: .experiment
+        case .project: .project
+        case .product: .product
+        }
+    }
 }
 
 /// Global destinations that live below the four spaces in the rail.

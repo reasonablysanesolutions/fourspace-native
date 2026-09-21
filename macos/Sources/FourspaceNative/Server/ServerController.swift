@@ -43,8 +43,8 @@ final class ServerController {
     /// A non-nil token means the controller started the server and minted a
     /// fresh credential. `nil` means it attached to an existing server, and the
     /// caller should use its stored token.
-    func ensureRunning() async throws -> String? {
-        if await Self.isReachable(baseURL) {
+    func ensureRunning(forceSpawn: Bool = false) async throws -> String? {
+        if !forceSpawn, await Self.isReachable(baseURL) {
             state = .attached
             return nil
         }

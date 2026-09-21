@@ -93,35 +93,42 @@ final class HarnessStore {
         UserDefaults.standard.set(serverURL, forKey: DefaultsKey.serverURL)
 
         do {
-            let controller = ServerController(baseURL: url)
-            let minted = try await controller.ensureRunning()
-            serverController = controller
-
-            let effectiveToken: String?
-            if let minted {
-                effectiveToken = minted
-            } else {
-                effectiveToken = token.isEmpty ? nil : token
-            }
-
-            if tokenFromEnvironment || minted != nil {
-                // Ephemeral credential; do not write it to the Keychain.
-            } else if token.isEmpty {
-                Keychain.delete(account: "t3.bearerToken")
-            } else {
-                Keychain.set(token, account: "t3.bearerToken")
-            }
-
-            let connection = T3Connection(baseURL: url, token: effectiveToken)
-            try await connection.connect()
-            let config = try await connection.loadConfig()
-            self.connection = connection
-            providers = config.providers
-            restoreSelection()
-            connectionState = .connected
+            try await establish(url: url, forceSpawn: false)
         } catch {
-            connectionState = .failed(error.localizedDescription)
-            self.connection = nil
+            // The server may have vanished between the reachability probe and
+            // the handshake (e.g. another instance was shutting down). Retry:
+            // attach if something is listening again, otherwise spawn our own.
+            do {
+                let reachable = await ServerController.isReachable(url)
+                try await establish(url: url, forceSpawn: !reachable)
+            } catch {
+                connectionState = .failed(error.localizedDescription)
+                connection = nil
+            }
+        }
+    }
+
+    private func establish(url: URL, forceSpawn: Bool) async throws {
+        let controller = ServerController(baseURL: url)
+        let minted = try await controller.ensureRunning(forceSpawn: forceSpawn)
+
+        let effectiveToken: String? = minted ?? (token.isEmpty ? nil : token)
+        let connection = T3Connection(baseURL: url, token: effectiveToken)
+        try await connection.connect()
+        let config = try await connection.loadConfig()
+
+        serverController = controller
+        self.connection = connection
+        providers = config.providers
+        restoreSelection()
+        connectionState = .connected
+
+        if tokenFromEnvironment || minted != nil {
+            // Ephemeral credential; do not write it to the Keychain.
+        } else if token.isEmpty {
+            Keychain.delete(account: "t3.bearerToken")
+        } else {
+            Keychain.set(token, account: "t3.bearerToken")
         }
     }
 

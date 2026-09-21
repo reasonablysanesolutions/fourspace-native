@@ -26,6 +26,14 @@ under "Appendix: Four Spaces Electron memory".
   the Projects space: list, New Project (folder + name), Import Existing
   (NSOpenPanel, never moves/copies the folder), project threads and
   conversations.
+- Four Spaces kind registry: `FourSpacesRegistry` classifies projects as
+  experiment/project/product, persisted to
+  `~/Library/Application Support/FourSpace/registry.json` (open JSON, no lock-in).
+  Kind spaces show classified-of-kind + unclassified; Chat's backing project is
+  hidden. Context menu classifies and links/unlinks to Products. New projects
+  adopt the current space's kind.
+- Connect is resilient: if the handshake fails after a reachability probe (a
+  server shutting down), it retries and spawns its own server.
 - Server lifecycle: the app starts its own T3 server on launch and stops it on
   quit (`ServerController` + `AppDelegate`). It attaches to a server already
   listening and never kills one it did not start. Base dir

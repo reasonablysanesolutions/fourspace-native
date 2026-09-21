@@ -31,16 +31,21 @@ struct ProjectDetail: View {
 
     private func header(_ project: T3ProjectShell) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: "folder")
-                .foregroundStyle(.green)
+            Image(systemName: projects.kind(for: project)?.symbol ?? "folder")
+                .foregroundStyle(projects.kind(for: project)?.accent ?? .secondary)
             VStack(alignment: .leading, spacing: 1) {
                 Text(project.title)
                     .font(.headline)
-                Text(project.workspaceRoot)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                HStack(spacing: 6) {
+                    Text(project.workspaceRoot)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    if let product = projects.originProduct(for: project) {
+                        Text("· in \(product.title)")
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
             Spacer()
             ModelPicker()
@@ -70,6 +75,26 @@ struct ProjectDetail: View {
             Divider()
 
             List(selection: threadSelection) {
+                if let project = projects.selectedProject,
+                   projects.kind(for: project) == .product,
+                   !projects.linkedProjects.isEmpty {
+                    Section("Contains") {
+                        ForEach(projects.linkedProjects, id: \.id) { linked in
+                            Button {
+                                projects.selectProject(linked.id)
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: projects.kind(for: linked)?.symbol ?? "circle.dashed")
+                                        .foregroundStyle(projects.kind(for: linked)?.accent ?? .secondary)
+                                    Text(linked.title)
+                                        .lineLimit(1)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
                 if projects.projectThreads.isEmpty {
                     Text("No threads yet.")
                         .foregroundStyle(.secondary)
