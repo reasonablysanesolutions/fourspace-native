@@ -35,6 +35,14 @@ struct ProjectsList: View {
 
             Divider()
 
+            if let error = projects.errorText {
+                Text(error)
+                    .font(.callout)
+                    .foregroundStyle(.red)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+            }
+
             List(selection: selection) {
                 if !projects.harness.isConnected {
                     Text("Connect to a T3 server to see projects.")
@@ -137,6 +145,10 @@ struct ProjectsList: View {
             }
             if projects.originProduct(for: project) != nil {
                 Button("Unlink from Product") { projects.unlink(project) }
+            }
+            Divider()
+            Button("Move into Four Space") {
+                Task { await projects.moveIntoStructure(project) }
             }
             Divider()
             Button("Remove Project…", role: .destructive) { pendingRemoval = project }

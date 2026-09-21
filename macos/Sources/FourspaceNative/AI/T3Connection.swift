@@ -187,6 +187,16 @@ actor T3Connection {
             "type": "project.delete",
             "commandId": .string(UUID().uuidString),
             "projectId": .string(projectId),
+            "force": .bool(true),
+        ]))
+    }
+
+    func updateProjectWorkspace(projectId: String, workspaceRoot: String) async throws {
+        try await dispatch(.object([
+            "type": "project.meta.update",
+            "commandId": .string(UUID().uuidString),
+            "projectId": .string(projectId),
+            "workspaceRoot": .string(workspaceRoot),
         ]))
     }
 

@@ -111,11 +111,7 @@ final class FourSpacesRegistry {
     }
 
     static func defaultRootDefault() -> String {
-        let fileManager = FileManager.default
-        if fileManager.fileExists(atPath: defaultFourSpaceRoot) {
-            return defaultFourSpaceRoot
-        }
-        return (NSHomeDirectory() as NSString).appendingPathComponent("FourSpace")
+        defaultFourSpaceRoot
     }
 
     /// A safe single folder name, or nil when nothing usable remains. Mirrors
@@ -225,6 +221,13 @@ final class FourSpacesRegistry {
         defaultRoot = file.defaultRoot
         chatProjectId = file.chatProjectId
         entries = Dictionary(uniqueKeysWithValues: file.entries.map { ($0.projectId, $0) })
+
+        // Migrate the app's earlier `~/FourSpace` default to the product root.
+        let legacy = (NSHomeDirectory() as NSString).appendingPathComponent("FourSpace")
+        if defaultRoot == legacy {
+            defaultRoot = FourSpacesRegistry.defaultRootDefault()
+            save()
+        }
     }
 
     func save() {

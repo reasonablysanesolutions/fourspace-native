@@ -198,6 +198,39 @@ final class ProjectsViewModel {
         }
     }
 
+    /// Moves an existing project's folder into the Four Space structure and
+    /// updates its workspace root. Used to fix projects created before the
+    /// import-moves behaviour, or imported with "keep".
+    func moveIntoStructure(_ project: T3ProjectShell) async {
+        let kind = registry.kind(for: project.id) ?? space.kind ?? .project
+        let name = (project.workspaceRoot as NSString).lastPathComponent
+        guard let destination = registry.resolveDestination(kind: kind, name: name) else {
+            errorText = "Could not resolve a destination for this project."
+            return
+        }
+        if FourSpacesRegistry.normalizePath(destination) == FourSpacesRegistry.normalizePath(project.workspaceRoot) {
+            return
+        }
+        isBusy = true
+        errorText = nil
+        defer { isBusy = false }
+        do {
+            let finalPath = try await harness.relocateWorkspace(
+                sourcePath: project.workspaceRoot,
+                destinationPath: destination,
+                mode: .move
+            )
+            try await harness.updateProjectWorkspace(projectId: project.id, workspaceRoot: finalPath)
+            registry.setKind(
+                kind,
+                for: T3ProjectShell(id: project.id, title: project.title, workspaceRoot: finalPath)
+            )
+            await refresh()
+        } catch {
+            errorText = error.localizedDescription
+        }
+    }
+
     /// Removes the T3 project record and its classification. The folder on
     /// disk is never deleted.
     func remove(_ project: T3ProjectShell) async {

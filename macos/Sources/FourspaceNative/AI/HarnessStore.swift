@@ -184,6 +184,11 @@ final class HarnessStore {
         try await connection.deleteProject(projectId: projectId)
     }
 
+    func updateProjectWorkspace(projectId: String, workspaceRoot: String) async throws {
+        guard let connection else { throw HarnessError.notConnected }
+        try await connection.updateProjectWorkspace(projectId: projectId, workspaceRoot: workspaceRoot)
+    }
+
     func relocateWorkspace(
         sourcePath: String,
         destinationPath: String,
