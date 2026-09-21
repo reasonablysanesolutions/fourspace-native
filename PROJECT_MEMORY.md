@@ -21,9 +21,16 @@ under "Appendix: Four Spaces Electron memory".
   thread, else create). `ChatThreadList` is the middle column; `ChatViewModel`
   persists provider/model/active-thread in UserDefaults. Verified end-to-end
   with Codex via `--probe`, including project/thread reuse across runs.
+- Server lifecycle: the app starts its own T3 server on launch and stops it on
+  quit (`ServerController` + `AppDelegate`). It attaches to a server already
+  listening and never kills one it did not start. Base dir
+  `~/Library/Application Support/FourSpace/server`; token minted via
+  `auth session issue --token-only`. `node_modules` is installed in this repo
+  (`vp i`) so the app owns its server from its own tree.
 - Build: `macos/scripts/build-app.sh`, run `open macos/.build/FourspaceNative.app`.
   Headless: `FOURSPACE_URL=… FOURSPACE_TOKEN=… macos/.build/debug/FourspaceNative --probe`.
   Dev env overrides `FOURSPACE_URL`/`FOURSPACE_TOKEN` are not persisted to Keychain.
+  Server entry/node overridable via `FOURSPACE_SERVER_ENTRY`/`FOURSPACE_NODE`.
 - Docs: `FOURSPACE-MIGRATION.md` (plan, capability map, decisions),
   `ARCHITECTURE.md` (actual implementation).
 - Originals are read-only and untouched: Electron at
@@ -56,7 +63,6 @@ under "Appendix: Four Spaces Electron memory".
 2. Phase 7: Projects + importing existing folders (New/Import/Organize), with
    the Four Spaces kind registry native.
 3. Live shell subscription so thread/project changes stream in.
-
 
 ---
 

@@ -5,9 +5,9 @@ app grows; do not record plans here (see `FOURSPACE-MIGRATION.md`).
 
 ## Status
 
-Phase 5/6 complete: provider/model selection with persistence, a live Chat
-thread list, and session reuse. Phase 4 live chat and the Phase 3 shell remain
-in place.
+Phase 5/6 complete plus server lifecycle management: provider/model selection
+with persistence, a live Chat thread list, session reuse, and the app starting
+and stopping its own T3 server.
 
 ## Repository
 
@@ -25,10 +25,13 @@ macos/
   Sources/FourspaceNative/
     App/
       Entry.swift                   @main; `--probe` headless path
+      AppDelegate.swift             quit hooks; stops the owned server
       FourspaceNativeApp.swift      App scene, menu commands
       AppState.swift                @Observable top-level UI state
     Domain/
       FourSpace.swift               FourSpace, GlobalDestination, RailSelection
+    Server/
+      ServerController.swift        spawn/attach/stop the T3 server, mint token
     AI/
       JSONValue.swift               dynamic JSON for the wire protocol
       T3RpcClient.swift             Effect RPC over WebSocket (JSON envelopes)
@@ -146,13 +149,46 @@ transcript state. Both are `@Observable` and injected via `.environment`.
 Column widths are set with `navigationSplitViewColumnWidth`: rail 180–260
 (ideal 205), content 260–420 (ideal 320).
 
+## Server lifecycle
+
+The app owns a local T3 server process. `ServerController` is the single place
+that decides attach vs. spawn.
+
+- **On connect:** if something already listens at the server URL, the app
+  **attaches** and uses its stored token. Otherwise, for a loopback URL, it
+  **spawns** `node <repo>/apps/server/src/bin.ts serve --port … --host
+127.0.0.1 --base-dir <Application Support/FourSpace/server>`, waits until it
+  is listening, and **mints** a bearer token by running the same entry with
+  `auth session issue --token-only`.
+- **On quit:** `AppDelegate.applicationWillTerminate` calls
+  `ServerController.terminateCurrent()`, which stops **only the child it
+  started**. An attached server is left running. Closing the last window quits
+  the app (`applicationShouldTerminateAfterLastWindowClosed`).
+- Server stdout/stderr go to `<base-dir>/server.log`.
+
+Locations are dev-friendly and overridable:
+
+| Setting      | Default                                                                                                   | Override                                                        |
+| ------------ | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Server entry | repo `apps/server/src/bin.ts` derived from `#filePath`                                                    | `FOURSPACE_SERVER_ENTRY` env or `fourspace.serverEntry` default |
+| Node binary  | first of `/opt/homebrew/bin/node`, `/usr/local/bin/node`, vite-plus, `~/.local/bin/node`, `/usr/bin/node` | `FOURSPACE_NODE` env                                            |
+| Base dir     | `~/Library/Application Support/FourSpace/server`                                                          | passed to the controller                                        |
+
+The child's `PATH` is widened to include the node directory, `~/.local/bin`,
+Homebrew and system paths, so provider CLIs (e.g. Codex) resolve when the app
+is launched from Finder.
+
+Verified: launching the app spawns the server and quitting stops it; a server
+that was already running before launch survives the quit.
+
 ## Chat (Phase 4–6)
 
 `ChatThreadList` fills the middle column with the Chat project's threads,
 newest first, with relative timestamps and a New Chat button. `ChatView` shows
 a connect form when disconnected (server URL + bearer token), and a transcript
-+ composer when connected. If a token is stored, the view auto-connects on
-first appearance.
+
+- composer when connected. If a token is stored, the view auto-connects on
+  first appearance.
 
 `ChatViewModel.openChatWorkspace()` calls
 `T3Connection.openOrCreateWorkspace(workspaceRoot:…)`, which is the single
@@ -169,16 +205,16 @@ appear.
 
 ### Persistence
 
-| Value | Store | Key |
-| --- | --- | --- |
-| Server URL | `UserDefaults` | `fourspace.serverURL` |
-| Bearer token | Keychain | service `codes.fourspace.native`, account `t3.bearerToken` |
-| Selected provider | `UserDefaults` | `fourspace.selectedProviderId` |
-| Selected model | `UserDefaults` | `fourspace.selectedModelSlug` |
-| Active thread | `UserDefaults` | `fourspace.activeThreadId` |
+| Value             | Store          | Key                                                        |
+| ----------------- | -------------- | ---------------------------------------------------------- |
+| Server URL        | `UserDefaults` | `fourspace.serverURL`                                      |
+| Bearer token      | Keychain       | service `codes.fourspace.native`, account `t3.bearerToken` |
+| Selected provider | `UserDefaults` | `fourspace.selectedProviderId`                             |
+| Selected model    | `UserDefaults` | `fourspace.selectedModelSlug`                              |
+| Active thread     | `UserDefaults` | `fourspace.activeThreadId`                                 |
 
 The active thread is restored only if it still exists in the shell; otherwise
-the newest thread is selected. Chat *content* is never stored natively — the
+the newest thread is selected. Chat _content_ is never stored natively — the
 T3 server's event-sourced SQLite is the source of truth.
 
 ### Dev overrides
@@ -211,4 +247,3 @@ as dev-only and is **not** written to the Keychain.
 - Keychain is the secret store. Ad-hoc dev builds prompt for access when a
   credential was seeded by another process; the app creates its own item when
   the user connects, so normal use does not prompt.
-

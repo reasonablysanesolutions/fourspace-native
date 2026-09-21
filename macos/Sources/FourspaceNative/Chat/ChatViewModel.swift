@@ -40,6 +40,9 @@ final class ChatViewModel {
     /// A token supplied via `FOURSPACE_TOKEN` is dev-only and never persisted.
     private let tokenFromEnvironment: Bool
 
+    /// Owns a locally spawned T3 server for the app's lifetime.
+    private(set) var serverController: ServerController?
+
     private enum DefaultsKey {
         static let serverURL = "fourspace.serverURL"
         static let providerId = "fourspace.selectedProviderId"
@@ -101,16 +104,28 @@ final class ChatViewModel {
         connectionState = .connecting
         errorText = nil
         UserDefaults.standard.set(serverURL, forKey: DefaultsKey.serverURL)
-        if tokenFromEnvironment {
-            // Dev-only token; do not write it to the Keychain.
-        } else if token.isEmpty {
-            Keychain.delete(account: "t3.bearerToken")
-        } else {
-            Keychain.set(token, account: "t3.bearerToken")
-        }
 
-        let connection = T3Connection(baseURL: url, token: token.isEmpty ? nil : token)
         do {
+            let controller = ServerController(baseURL: url)
+            let minted = try await controller.ensureRunning()
+            serverController = controller
+
+            let effectiveToken: String?
+            if let minted {
+                effectiveToken = minted
+            } else {
+                effectiveToken = token.isEmpty ? nil : token
+            }
+
+            if tokenFromEnvironment || minted != nil {
+                // Ephemeral credential; do not write it to the Keychain.
+            } else if token.isEmpty {
+                Keychain.delete(account: "t3.bearerToken")
+            } else {
+                Keychain.set(token, account: "t3.bearerToken")
+            }
+
+            let connection = T3Connection(baseURL: url, token: effectiveToken)
             try await connection.connect()
             let config = try await connection.loadConfig()
             self.connection = connection

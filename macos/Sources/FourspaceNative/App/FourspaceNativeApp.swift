@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct FourspaceNativeApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var appState = AppState()
     @State private var chat = ChatViewModel()
 

@@ -18,7 +18,7 @@ struct ChatView: View {
         }
         .navigationTitle("Chat")
         .task {
-            if chat.connectionState == .disconnected, !chat.token.isEmpty {
+            if chat.connectionState == .disconnected {
                 await chat.connect()
             }
         }
@@ -64,10 +64,17 @@ struct ChatView: View {
 
     private var statusText: String {
         switch chat.connectionState {
-        case .connected: "Connected"
-        case .connecting: "Connecting…"
-        case .failed(let message): message
-        case .disconnected: "Not connected"
+        case .connected:
+            return chat.serverController?.isOwned == true ? "Connected · local server" : "Connected"
+        case .connecting:
+            if chat.serverController?.state == .starting {
+                return "Starting T3 server…"
+            }
+            return "Connecting…"
+        case .failed(let message):
+            return message
+        case .disconnected:
+            return "Not connected"
         }
     }
 
@@ -116,7 +123,7 @@ struct ChatView: View {
                 .foregroundStyle(.blue)
             Text("Connect to a T3 server")
                 .font(.title3.weight(.semibold))
-            Text("The harness runs as a local T3 server; the app talks to it over WebSocket.")
+            Text("Four Space starts a local T3 server automatically. Point at a remote server only if you need to.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -125,7 +132,7 @@ struct ChatView: View {
             TextField("Server URL", text: $chat.serverURL)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 340)
-            SecureField("Bearer token", text: $chat.token)
+            SecureField("Bearer token (remote servers)", text: $chat.token)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 340)
 
