@@ -27,6 +27,20 @@ enum Probe {
             let config = try await connection.loadConfig()
             log("probe: environment \(config.environmentId), cwd \(config.cwd)")
 
+            // Relocation-only mode: verify the cross-volume-safe move/copy RPC.
+            if let source = environment["FOURSPACE_PROBE_RELOCATE"],
+               let destination = environment["FOURSPACE_PROBE_DEST"] {
+                let mode = environment["FOURSPACE_PROBE_MODE"] ?? "move"
+                let result = try await connection.relocateWorkspace(
+                    sourcePath: source,
+                    destinationPath: destination,
+                    mode: mode
+                )
+                log("probe: relocated \(source) -> \(result) (\(mode))")
+                await connection.disconnect()
+                return
+            }
+
             let providers = config.providers.filter { $0.isReady && !$0.models.isEmpty }
             guard let provider = providers.first, let model = provider.models.first else {
                 log("probe: no ready provider with models")

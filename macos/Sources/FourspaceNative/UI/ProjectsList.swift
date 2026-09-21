@@ -8,6 +8,7 @@ struct ProjectsList: View {
 
     @Environment(ProjectsViewModel.self) private var projects
     @State private var showNewProject = false
+    @State private var pendingRemoval: T3ProjectShell?
 
     var body: some View {
         @Bindable var projects = projects
@@ -51,6 +52,23 @@ struct ProjectsList: View {
         .navigationTitle(title)
         .sheet(isPresented: $showNewProject) {
             NewProjectSheet()
+        }
+        .alert(
+            "Remove Project?",
+            isPresented: Binding(
+                get: { pendingRemoval != nil },
+                set: { if !$0 { pendingRemoval = nil } }
+            )
+        ) {
+            Button("Remove", role: .destructive) {
+                if let project = pendingRemoval {
+                    Task { await projects.remove(project) }
+                }
+                pendingRemoval = nil
+            }
+            Button("Cancel", role: .cancel) { pendingRemoval = nil }
+        } message: {
+            Text("Removes the project from T3 and clears its classification. The folder on disk is not deleted.")
         }
         .task(id: space) {
             projects.setSpace(space)
@@ -120,6 +138,8 @@ struct ProjectsList: View {
             if projects.originProduct(for: project) != nil {
                 Button("Unlink from Product") { projects.unlink(project) }
             }
+            Divider()
+            Button("Remove Project…", role: .destructive) { pendingRemoval = project }
         }
     }
 
@@ -144,36 +164,40 @@ struct ProjectsList: View {
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
         panel.prompt = "Import"
-        panel.message = "Choose an existing folder to adopt as a project. It will not be moved or copied."
+        panel.message = "Choose an existing folder. It is moved into your Four Space \(space.kind?.directoryName ?? "Projects") folder and adopted as a project."
         if panel.runModal() == .OK, let url = panel.url {
             Task { await projects.importFolder(url) }
         }
     }
 }
 
-/// Sheet for creating a brand-new project folder.
+/// Sheet for creating a brand-new project folder under the Four Space root.
 struct NewProjectSheet: View {
     @Environment(ProjectsViewModel.self) private var projects
     @Environment(\.dismiss) private var dismiss
 
     @State private var name = ""
-    @State private var parent = NewProjectSheet.defaultParent()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("New \(projects.space.kind?.title ?? "Project")")
+            Text("New \(kind.title)")
                 .font(.headline)
 
             TextField("Name", text: $name)
                 .textFieldStyle(.roundedBorder)
 
-            HStack(spacing: 8) {
-                Text(parent.path)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .foregroundStyle(.secondary)
+            HStack(alignment: .top, spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Destination")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(destination)
+                        .font(.callout)
+                        .lineLimit(2)
+                        .truncationMode(.middle)
+                }
                 Spacer()
-                Button("Choose…", action: chooseParent)
+                Button("Change Root…", action: chooseRoot)
             }
 
             HStack {
@@ -182,33 +206,42 @@ struct NewProjectSheet: View {
                     .keyboardShortcut(.cancelAction)
                 Button("Create") {
                     Task {
-                        await projects.createProject(title: name, parentDirectory: parent)
+                        await projects.createProject(name: name)
                         dismiss()
                     }
                 }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
-                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(!canCreate)
             }
         }
         .padding(20)
-        .frame(width: 460)
+        .frame(width: 500)
     }
 
-    private func chooseParent() {
+    private var kind: FourSpaceKind {
+        projects.space.kind ?? .project
+    }
+
+    private var destination: String {
+        projects.registry.resolveDestination(kind: kind, name: name)
+            ?? "\(projects.registry.resolvedDefaultRoot)/\(kind.directoryName)/…"
+    }
+
+    private var canCreate: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func chooseRoot() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
-        panel.prompt = "Choose"
+        panel.prompt = "Use as Root"
+        panel.message = "Choose the Four Space root. New workspaces go in its Experiments, Projects and Products folders."
         if panel.runModal() == .OK, let url = panel.url {
-            parent = url
+            projects.registry.defaultRoot = url.path
+            projects.registry.save()
         }
-    }
-
-    static func defaultParent() -> URL {
-        let home = URL(fileURLWithPath: NSHomeDirectory())
-        let projekt = home.appendingPathComponent("Projekt")
-        return FileManager.default.fileExists(atPath: projekt.path) ? projekt : home
     }
 }

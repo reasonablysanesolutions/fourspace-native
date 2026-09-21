@@ -182,6 +182,25 @@ actor T3Connection {
         return projectId
     }
 
+    func deleteProject(projectId: String) async throws {
+        try await dispatch(.object([
+            "type": "project.delete",
+            "commandId": .string(UUID().uuidString),
+            "projectId": .string(projectId),
+        ]))
+    }
+
+    /// Moves or copies a folder on the server host (cross-volume safe) via the
+    /// Four Spaces relocation RPC. Returns the resulting path.
+    func relocateWorkspace(sourcePath: String, destinationPath: String, mode: String) async throws -> String {
+        let result = try await rpc.request(tag: "fourspaces.relocateWorkspace", payload: .object([
+            "sourcePath": .string(sourcePath),
+            "destinationPath": .string(destinationPath),
+            "mode": .string(mode),
+        ]))
+        return result["destinationPath"]?.stringValue ?? destinationPath
+    }
+
     func createThread(
         projectId: String,
         title: String,

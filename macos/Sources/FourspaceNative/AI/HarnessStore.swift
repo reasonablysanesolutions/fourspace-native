@@ -179,6 +179,24 @@ final class HarnessStore {
         )
     }
 
+    func deleteProject(projectId: String) async throws {
+        guard let connection else { throw HarnessError.notConnected }
+        try await connection.deleteProject(projectId: projectId)
+    }
+
+    func relocateWorkspace(
+        sourcePath: String,
+        destinationPath: String,
+        mode: FourSpaceImportMode
+    ) async throws -> String {
+        guard let connection else { throw HarnessError.notConnected }
+        return try await connection.relocateWorkspace(
+            sourcePath: sourcePath,
+            destinationPath: destinationPath,
+            mode: mode.rawValue
+        )
+    }
+
     func openOrCreateWorkspace(
         workspaceRoot: String,
         projectTitle: String,

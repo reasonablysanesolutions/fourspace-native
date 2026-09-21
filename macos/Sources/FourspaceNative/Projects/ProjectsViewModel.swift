@@ -126,17 +126,23 @@ final class ProjectsViewModel {
 
     // MARK: - Creating / importing
 
-    func createProject(title: String, parentDirectory: URL) async {
-        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+    /// Creates a new folder at `<root>/<KindDirectory>/<name>` and registers it.
+    /// The destination mirrors the Electron product's import resolution.
+    func createProject(name: String) async {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let kind = space.kind ?? .project
+        guard let destination = registry.resolveDestination(kind: kind, name: trimmed) else {
+            errorText = "Enter a valid name."
+            return
+        }
         isBusy = true
         errorText = nil
         defer { isBusy = false }
         do {
-            let root = parentDirectory.appendingPathComponent(trimmed).path
+            let title = FourSpacesRegistry.sanitizeFolderName(trimmed) ?? trimmed
             let id = try await harness.createProject(
-                title: trimmed,
-                workspaceRoot: root,
+                title: title,
+                workspaceRoot: destination,
                 createIfMissing: true
             )
             await refresh()
@@ -149,19 +155,61 @@ final class ProjectsViewModel {
 
     /// Adopts an existing folder as a project. The folder is never moved or
     /// copied.
-    func importFolder(_ url: URL) async {
+    /// Adopts an existing folder as a project, moving it into the Four Space
+    /// structure (`<root>/<KindDirectory>/<name>`) unless it is already there.
+    /// The filesystem move goes through the server's cross-volume-safe RPC.
+    func importFolder(_ url: URL, mode: FourSpaceImportMode = .move) async {
         isBusy = true
         errorText = nil
         defer { isBusy = false }
         do {
+            let kind = space.kind ?? .project
+            let name = url.lastPathComponent
+            let source = url.path
+            var finalPath = source
+
+            if mode != .keep, let destination = registry.resolveDestination(kind: kind, name: name) {
+                if FourSpacesRegistry.normalizePath(destination) == FourSpacesRegistry.normalizePath(source) {
+                    finalPath = destination
+                } else {
+                    do {
+                        finalPath = try await harness.relocateWorkspace(
+                            sourcePath: source,
+                            destinationPath: destination,
+                            mode: mode
+                        )
+                    } catch {
+                        errorText = "Could not move the folder: \(error.localizedDescription)"
+                        return
+                    }
+                }
+            }
+
             let id = try await harness.createProject(
-                title: url.lastPathComponent,
-                workspaceRoot: url.path,
+                title: name,
+                workspaceRoot: finalPath,
                 createIfMissing: false
             )
             await refresh()
             classifyNewProject(id)
             selectProject(id)
+        } catch {
+            errorText = error.localizedDescription
+        }
+    }
+
+    /// Removes the T3 project record and its classification. The folder on
+    /// disk is never deleted.
+    func remove(_ project: T3ProjectShell) async {
+        do {
+            try await harness.deleteProject(projectId: project.id)
+            registry.setKind(nil, for: project)
+            if selectedProjectId == project.id {
+                selectedProjectId = nil
+                activeThreadId = nil
+                conversation.close()
+            }
+            await refresh()
         } catch {
             errorText = error.localizedDescription
         }

@@ -33,7 +33,37 @@ enum FourSpaceKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .product: .orange
         }
     }
+
+    /// Standard subdirectory under the Four Space root, matching the Electron
+    /// product's `KIND_DIRECTORY_NAMES`.
+    var directoryName: String {
+        switch self {
+        case .experiment: "Experiments"
+        case .project: "Projects"
+        case .product: "Products"
+        }
+    }
 }
+
+enum FourSpaceImportMode: String, CaseIterable, Identifiable, Sendable {
+    case keep
+    case move
+    case copy
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .keep: "Keep in place"
+        case .move: "Move into Four Space"
+        case .copy: "Copy into Four Space"
+        }
+    }
+}
+
+/// The Electron product's default root. Kept for compatibility; the native
+/// registry falls back here only when the configured root is unset.
+let defaultFourSpaceRoot = "/Volumes/Mr_Jones/T3"
 
 struct FourSpaceEntry: Codable, Hashable, Sendable {
     var projectId: String
@@ -68,8 +98,62 @@ final class FourSpacesRegistry {
 
     init(url: URL = FourSpacesRegistry.defaultURL()) {
         self.url = url
-        defaultRoot = (NSHomeDirectory() as NSString).appendingPathComponent("FourSpace")
+        defaultRoot = FourSpacesRegistry.defaultRootDefault()
         load()
+    }
+
+    /// The configured root, or a sensible default. Prefers the Electron
+    /// product's root when it exists on disk, then `~/FourSpace`.
+    var resolvedDefaultRoot: String {
+        let trimmed = defaultRoot.trimmingCharacters(in: .whitespaces)
+        if !trimmed.isEmpty { return trimmed }
+        return FourSpacesRegistry.defaultRootDefault()
+    }
+
+    static func defaultRootDefault() -> String {
+        let fileManager = FileManager.default
+        if fileManager.fileExists(atPath: defaultFourSpaceRoot) {
+            return defaultFourSpaceRoot
+        }
+        return (NSHomeDirectory() as NSString).appendingPathComponent("FourSpace")
+    }
+
+    /// A safe single folder name, or nil when nothing usable remains. Mirrors
+    /// the Electron `sanitizeFolderName`: separators become dashes so a pasted
+    /// path cannot escape the destination directory.
+    static func sanitizeFolderName(_ value: String) -> String? {
+        var collapsed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        collapsed = collapsed.replacingOccurrences(
+            of: "[/\\\\]+",
+            with: "-",
+            options: .regularExpression
+        )
+        collapsed = collapsed.replacingOccurrences(
+            of: "\\s+",
+            with: " ",
+            options: .regularExpression
+        )
+        collapsed = collapsed.trimmingCharacters(in: .whitespacesAndNewlines)
+        if collapsed.isEmpty || collapsed == "." || collapsed == ".." { return nil }
+        return String(collapsed.prefix(128))
+    }
+
+    /// Compares roots ignoring a trailing slash.
+    static func normalizePath(_ path: String) -> String {
+        path.replacingOccurrences(of: "[/\\\\]+$", with: "", options: .regularExpression)
+    }
+
+    /// `<resolvedRoot>/<KindDirectory>/<folder>`, matching the Electron
+    /// `resolveImportDestination`.
+    func resolveDestination(kind: FourSpaceKind, name: String) -> String? {
+        guard let folder = Self.sanitizeFolderName(name) else { return nil }
+        let root = resolvedDefaultRoot.replacingOccurrences(
+            of: "[/\\\\]+$",
+            with: "",
+            options: .regularExpression
+        )
+        guard !root.isEmpty else { return nil }
+        return "\(root)/\(kind.directoryName)/\(folder)"
     }
 
     // MARK: - Queries

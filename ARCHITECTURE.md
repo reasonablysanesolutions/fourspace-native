@@ -151,12 +151,21 @@ project is recorded separately and hidden from kind spaces.
 
 ## Projects (Phase 7)
 
-- **Create New**: name + parent directory; the folder is created and registered
-  (`project.create` with `createWorkspaceRootIfMissing`).
-- **Import Existing**: a native `NSOpenPanel` picks a folder; it is registered
-  with its absolute path as the workspace root and
-  `createWorkspaceRootIfMissing: false`. The folder is **never moved or
-  copied**.
+Destinations follow the Electron product's `resolveImportDestination`:
+`<resolvedRoot>/<KindDirectory>/<folder>`, where KindDirectory is
+`Experiments` / `Projects` / `Products` and the root defaults to
+`/Volumes/Mr_Jones/T3` when it exists, else `~/FourSpace` (changeable from the
+New dialog).
+
+- **Create New**: a name; the folder is created at the destination and
+  registered (`project.create` with `createWorkspaceRootIfMissing`).
+- **Import Existing**: a native `NSOpenPanel` picks a folder, which is
+  **moved into the structure** via the server's
+  `fourspaces.relocateWorkspace` RPC (cross-volume safe, `move` mode). If the
+  folder already sits at its destination, no move happens. The move precedes
+  registration so the project points at the new path.
+- **Remove Project**: deletes the T3 project record and clears its
+  classification. The folder on disk is never deleted.
 - Selecting a project shows its root and threads; selecting or creating a
   thread opens the shared conversation surface with the shared model picker.
 

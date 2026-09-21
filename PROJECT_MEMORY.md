@@ -23,9 +23,11 @@ under "Appendix: Four Spaces Electron memory".
   with Codex via `--probe`, including project/thread reuse across runs.
 - Phase 7 done: shared `HarnessStore` (one connection/server for all spaces),
   `ConversationViewModel` + shared `MessageList`/`Composer`/`ModelPicker`, and
-  the Projects space: list, New Project (folder + name), Import Existing
-  (NSOpenPanel, never moves/copies the folder), project threads and
-  conversations.
+  the Projects space: list, New Project (name → `<root>/<KindDirectory>/<name>`),
+  Import Existing (moved into the structure via `fourspaces.relocateWorkspace`,
+  cross-volume safe), Remove Project (record only; folder untouched), project
+  threads and conversations. Root defaults to `/Volumes/Mr_Jones/T3` if present
+  else `~/FourSpace`.
 - Four Spaces kind registry: `FourSpacesRegistry` classifies projects as
   experiment/project/product, persisted to
   `~/Library/Application Support/FourSpace/registry.json` (open JSON, no lock-in).
