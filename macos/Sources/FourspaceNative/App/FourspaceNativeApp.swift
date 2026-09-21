@@ -8,6 +8,7 @@ struct FourspaceNativeApp: App {
     @State private var chat: ChatViewModel
     @State private var projects: ProjectsViewModel
     @State private var usage = UsageViewModel()
+    @State private var scheduled: ScheduledViewModel
 
     init() {
         let harness = HarnessStore()
@@ -16,6 +17,7 @@ struct FourspaceNativeApp: App {
         _registry = State(initialValue: registry)
         _chat = State(initialValue: ChatViewModel(harness: harness, registry: registry))
         _projects = State(initialValue: ProjectsViewModel(harness: harness, registry: registry))
+        _scheduled = State(initialValue: ScheduledViewModel(harness: harness))
     }
 
     var body: some Scene {
@@ -27,6 +29,7 @@ struct FourspaceNativeApp: App {
                 .environment(chat)
                 .environment(projects)
                 .environment(usage)
+                .environment(scheduled)
         }
         .defaultSize(width: 1280, height: 820)
         .commands {

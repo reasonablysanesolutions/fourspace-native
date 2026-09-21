@@ -28,6 +28,9 @@ under "Appendix: Four Spaces Electron memory".
   cross-volume safe), Remove Project (record only; folder untouched), project
   threads and conversations. Root defaults to `/Volumes/Mr_Jones/T3` if present
   else `~/FourSpace`.
+- Scheduled: full job management via `scheduled.*` RPCs (list/create/update/
+  delete/runNow/listRuns). Upcoming/Paused list, detail with run history, and a
+  create/edit sheet (once/daily/weekly/interval).
 - Usage: rail indicator + Usage destination. `server.getUsageSummary` (today)
   and `fourspaces.getOpenRouterUsage`; cost in SEK via an editable rate
   (`fourspace.usdSekRate`, default 10.5). OpenRouter unconfigured is normal.

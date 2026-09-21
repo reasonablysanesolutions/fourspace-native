@@ -46,6 +46,9 @@ macos/
       NotesViewModel.swift          NOTES.md editor state + autosave
     Usage/
       UsageViewModel.swift          usage summary + OpenRouter + SEK
+    Scheduled/
+      ScheduledModels.swift         job/schedule/run types
+      ScheduledViewModel.swift      job CRUD, run now, history
     Security/
       Keychain.swift                generic-password Keychain wrapper
     Debug/
@@ -65,6 +68,9 @@ macos/
       NotesPanel.swift              NOTES.md side panel
       UsageView.swift               usage overview
       RailUsageBar.swift            compact rail usage indicator
+      ScheduledList.swift           scheduled jobs list
+      ScheduledDetail.swift         job detail + run history
+      ScheduledJobSheet.swift       create/edit job
   scripts/
     build-app.sh                    builds and bundles FourspaceNative.app
 ```
@@ -155,6 +161,18 @@ project is recorded separately and hidden from kind spaces.
   a context menu classifies (Experiment/Project/Product/Unclassified) and links
   or unlinks a project to a Product. New projects adopt the kind of the space
   they were created in. A Product's detail lists the projects linked to it.
+
+## Scheduled (Phase 13)
+
+Scheduled is a global function, not a fifth space. `ScheduledViewModel` drives
+the server's `scheduled.*` RPCs: `listJobs`, `createJob`, `updateJob`,
+`deleteJob`, `runJobNow`, `listRuns`.
+
+- The list groups **Upcoming** (enabled, by next run) and **Paused**.
+- The detail shows the schedule, prompt, project, next/last run, an enabled
+  toggle, Run now, Edit and Delete, plus that job's run history.
+- The create/edit sheet picks a project and a schedule: once / daily / weekly /
+  interval, with the fields each needs. Jobs run only while the server runs.
 
 ## Usage (Phase 14)
 

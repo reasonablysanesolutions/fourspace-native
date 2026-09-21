@@ -259,6 +259,12 @@ final class HarnessStore {
 
     // MARK: - Usage
 
+    /// Generic unary RPC passthrough for domains without a dedicated helper.
+    func rpc(_ tag: String, _ payload: JSONValue) async throws -> JSONValue {
+        guard let connection else { throw HarnessError.notConnected }
+        return try await connection.request(tag: tag, payload: payload)
+    }
+
     func usageSummary(sinceDay: String, untilDay: String, timeZone: String) async throws -> JSONValue {
         guard let connection else { throw HarnessError.notConnected }
         return try await connection.request(tag: "server.getUsageSummary", payload: .object([

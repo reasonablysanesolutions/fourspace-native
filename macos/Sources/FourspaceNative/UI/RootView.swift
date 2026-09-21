@@ -8,6 +8,7 @@ struct RootView: View {
     @Environment(ChatViewModel.self) private var chat
     @Environment(ProjectsViewModel.self) private var projects
     @Environment(UsageViewModel.self) private var usage
+    @Environment(ScheduledViewModel.self) private var scheduled
 
     var body: some View {
         @Bindable var app = app
@@ -25,6 +26,7 @@ struct RootView: View {
             await chat.connect()
             await projects.refresh()
             await usage.load(harness: harness)
+            await scheduled.refresh()
         }
     }
 

@@ -12,7 +12,7 @@ struct SpaceContentList: View {
             case .space(let space):
                 ProjectsList(space: space)
             case .global(.scheduled):
-                ScheduledPlaceholder()
+                ScheduledList()
             case .global(.usage):
                 UsagePlaceholder()
             case .global(.settings):
@@ -35,17 +35,6 @@ private struct UsagePlaceholder: View {
                 .foregroundStyle(.secondary)
         }
         .navigationTitle("Usage")
-    }
-}
-
-private struct ScheduledPlaceholder: View {
-    var body: some View {
-        List {
-            Section("Upcoming") { Text("No upcoming jobs.").foregroundStyle(.secondary) }
-            Section("Recurring") { Text("No recurring jobs.").foregroundStyle(.secondary) }
-            Section("History") { Text("No runs yet.").foregroundStyle(.secondary) }
-        }
-        .navigationTitle("Scheduled")
     }
 }
 

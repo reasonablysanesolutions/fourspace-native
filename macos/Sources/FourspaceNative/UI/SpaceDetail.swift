@@ -13,9 +13,11 @@ struct SpaceDetail: View {
             ProjectDetail()
         case .global(let destination):
             switch destination {
+            case .scheduled:
+                ScheduledDetail()
             case .usage:
                 UsageView()
-            case .scheduled, .settings:
+            case .settings:
                 ContentUnavailableView(
                     destination.title,
                     systemImage: destination.symbol,
