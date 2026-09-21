@@ -127,6 +127,43 @@ actor T3Connection {
 
     // MARK: - Orchestration
 
+    /// Resolves a workspace by its root: reuses an existing project and its
+    /// most recent thread, or creates both. This is how Four Space adopts a
+    /// plain folder without ever moving or converting it.
+    func openOrCreateWorkspace(
+        workspaceRoot: String,
+        projectTitle: String,
+        threadTitle: String,
+        modelSelection: JSONValue
+    ) async throws -> (projectId: String, threadId: String) {
+        let shell = try await loadShell()
+        let normalized = Self.normalize(workspaceRoot)
+
+        let projectId: String
+        if let existing = shell.projects.first(where: { Self.normalize($0.workspaceRoot) == normalized }) {
+            projectId = existing.id
+        } else {
+            projectId = try await createProject(
+                title: projectTitle,
+                workspaceRoot: workspaceRoot,
+                createIfMissing: true
+            )
+        }
+
+        if let existingThread = shell.threads
+            .filter({ $0.projectId == projectId })
+            .max(by: { $0.updatedAt < $1.updatedAt }) {
+            return (projectId, existingThread.id)
+        }
+
+        let threadId = try await createThread(
+            projectId: projectId,
+            title: threadTitle,
+            modelSelection: modelSelection
+        )
+        return (projectId, threadId)
+    }
+
     func dispatch(_ command: JSONValue) async throws {
         _ = try await rpc.request(tag: "orchestration.dispatchCommand", payload: command)
     }
@@ -204,5 +241,9 @@ actor T3Connection {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter.string(from: Date())
+    }
+
+    static func normalize(_ path: String) -> String {
+        path.hasSuffix("/") ? String(path.dropLast()) : path
     }
 }

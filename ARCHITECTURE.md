@@ -5,9 +5,9 @@ app grows; do not record plans here (see `FOURSPACE-MIGRATION.md`).
 
 ## Status
 
-Phase 4 complete: the app connects to a live T3 server over WebSocket, loads
-the provider/model catalog, creates or reuses a Chat workspace, starts a turn
-and streams the assistant response end-to-end. Phase 3 shell is in place.
+Phase 5/6 complete: provider/model selection with persistence, a live Chat
+thread list, and session reuse. Phase 4 live chat and the Phase 3 shell remain
+in place.
 
 ## Repository
 
@@ -44,6 +44,7 @@ macos/
       RailView.swift                persistent left rail
       SpaceContentList.swift        middle column per destination
       SpaceDetail.swift             detail column
+      ChatThreadList.swift          middle-column chat list
       ChatView.swift                live chat surface
   scripts/
     build-app.sh                    builds and bundles FourspaceNative.app
@@ -145,17 +146,46 @@ transcript state. Both are `@Observable` and injected via `.environment`.
 Column widths are set with `navigationSplitViewColumnWidth`: rail 180–260
 (ideal 205), content 260–420 (ideal 320).
 
-## Chat (Phase 4)
+## Chat (Phase 4–6)
 
-`ChatView` shows a connect form when disconnected (server URL + bearer token),
-and a transcript + composer when connected. If a token is stored, the view
-auto-connects on first appearance.
+`ChatThreadList` fills the middle column with the Chat project's threads,
+newest first, with relative timestamps and a New Chat button. `ChatView` shows
+a connect form when disconnected (server URL + bearer token), and a transcript
++ composer when connected. If a token is stored, the view auto-connects on
+first appearance.
 
-On first send the view model opens a hidden Chat workspace at
-`~/FourSpace/Chat`: it loads the shell, reuses an existing project with that
-root and its most recent thread, or creates them, then subscribes to the
-thread and dispatches the turn. The default runtime mode is `full-access`, so
-no approval round-trips are needed yet.
+`ChatViewModel.openChatWorkspace()` calls
+`T3Connection.openOrCreateWorkspace(workspaceRoot:…)`, which is the single
+implementation of Four Space's "adopt a folder" rule: reuse an existing
+project whose root matches, else create it; reuse its most recent thread, else
+create one. Both the app and the `--probe` path use it. The Chat root is
+`~/FourSpace/Chat`.
+
+The selected thread is subscribed via `orchestration.subscribeThread`; its
+snapshot replaces the transcript and `thread.message-sent` events are applied
+by message id (deltas append, completion clears `streaming`). When an
+assistant message completes, the thread list is refreshed so generated titles
+appear.
+
+### Persistence
+
+| Value | Store | Key |
+| --- | --- | --- |
+| Server URL | `UserDefaults` | `fourspace.serverURL` |
+| Bearer token | Keychain | service `codes.fourspace.native`, account `t3.bearerToken` |
+| Selected provider | `UserDefaults` | `fourspace.selectedProviderId` |
+| Selected model | `UserDefaults` | `fourspace.selectedModelSlug` |
+| Active thread | `UserDefaults` | `fourspace.activeThreadId` |
+
+The active thread is restored only if it still exists in the shell; otherwise
+the newest thread is selected. Chat *content* is never stored natively — the
+T3 server's event-sourced SQLite is the source of truth.
+
+### Dev overrides
+
+For automated verification, `FOURSPACE_URL` and `FOURSPACE_TOKEN` in the
+environment override the stored values. A token supplied this way is treated
+as dev-only and is **not** written to the Keychain.
 
 ## Relationship to T3 and Four Space Electron
 

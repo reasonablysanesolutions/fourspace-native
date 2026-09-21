@@ -36,6 +36,12 @@ struct ChatView: View {
                 .foregroundStyle(.secondary)
             Spacer()
             if chat.connectionState == .connected {
+                Button {
+                    Task { await chat.newChat() }
+                } label: {
+                    Label("New Chat", systemImage: "square.and.pencil")
+                }
+                .controlSize(.small)
                 modelPicker
                 Button("Disconnect") {
                     Task { await chat.disconnect() }
@@ -72,8 +78,7 @@ struct ChatView: View {
                 Section(provider.label) {
                     ForEach(provider.models) { model in
                         Button {
-                            chat.selectedProviderId = provider.instanceId
-                            chat.selectedModelSlug = model.slug
+                            chat.selectModel(provider: provider, model: model)
                         } label: {
                             if provider.instanceId == chat.selectedProviderId, model.slug == chat.selectedModelSlug {
                                 Label(model.name, systemImage: "checkmark")

@@ -34,19 +34,15 @@ enum Probe {
             }
             log("probe: provider \(provider.instanceId) model \(model.slug)")
 
-            let root = (NSHomeDirectory() as NSString)
-                .appendingPathComponent("FourSpace/Probe/\(UUID().uuidString.prefix(8))")
-            let projectId = try await connection.createProject(
-                title: "Probe",
+            let root = (NSHomeDirectory() as NSString).appendingPathComponent("FourSpace/Chat")
+            let opened = try await connection.openOrCreateWorkspace(
                 workspaceRoot: root,
-                createIfMissing: true
-            )
-            let threadId = try await connection.createThread(
-                projectId: projectId,
-                title: "Probe",
+                projectTitle: "Chat",
+                threadTitle: "Probe",
                 modelSelection: T3Connection.modelSelection(provider: provider, model: model)
             )
-            log("probe: project \(projectId) thread \(threadId)")
+            log("probe: project \(opened.projectId) thread \(opened.threadId)")
+            let threadId = opened.threadId
 
             var accumulated = ""
             let stream = connection.subscribeThread(threadId: threadId)

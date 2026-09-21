@@ -13,14 +13,17 @@ under "Appendix: Four Spaces Electron memory".
 - Native app at `macos/` (SwiftPM, `swift-tools-version: 6.0`, macOS 15+).
   Builds and launches. Three-column SwiftUI shell: rail (Chat/Experiment/
   Project/Product + Scheduled + Settings), content column, detail column.
-- Phase 4 done: live Chat. `T3RpcClient` (actor) speaks Effect RPC JSON over
-  WebSocket (`Request`/`Ack`/`Chunk`/`Exit`), auth via `Authorization: Bearer`
-  on the `/ws` upgrade, token in Keychain. `T3Connection` builds
-  `project.create`/`thread.create`/`thread.turn.start` and streams
-  `orchestration.subscribeThread`. Verified end-to-end with Codex via
-  `--probe` (streamed `fourspace-probe-ok`).
+- Phase 4–6 done: live Chat with thread list, model selection and persistence.
+  `T3RpcClient` (actor) speaks Effect RPC JSON over WebSocket
+  (`Request`/`Ack`/`Chunk`/`Exit`), auth via `Authorization: Bearer` on the
+  `/ws` upgrade, token in Keychain. `T3Connection.openOrCreateWorkspace` is the
+  one implementation of "adopt a folder" (reuse project by root + most recent
+  thread, else create). `ChatThreadList` is the middle column; `ChatViewModel`
+  persists provider/model/active-thread in UserDefaults. Verified end-to-end
+  with Codex via `--probe`, including project/thread reuse across runs.
 - Build: `macos/scripts/build-app.sh`, run `open macos/.build/FourspaceNative.app`.
   Headless: `FOURSPACE_URL=… FOURSPACE_TOKEN=… macos/.build/debug/FourspaceNative --probe`.
+  Dev env overrides `FOURSPACE_URL`/`FOURSPACE_TOKEN` are not persisted to Keychain.
 - Docs: `FOURSPACE-MIGRATION.md` (plan, capability map, decisions),
   `ARCHITECTURE.md` (actual implementation).
 - Originals are read-only and untouched: Electron at
@@ -42,16 +45,17 @@ under "Appendix: Four Spaces Electron memory".
 
 - Keychain prompt on dev builds when a credential was seeded by another
   process (ad-hoc signature). Normal use (app writes its own item) does not
-  prompt.
+  prompt. Dev env token avoids it entirely.
 - Chat uses runtime mode `full-access` (no approval UI yet).
-- No session list / thread sidebar yet; Chat reuses its most recent thread.
+- Chat thread titles only refresh when a turn completes; no live shell
+  subscription yet.
 
 ## Next steps
 
-1. Phase 5/6: provider + model selection polish, sessions/threads list and
-   persistence of per-space model defaults.
-2. Approvals / user-input handling for non-full-access modes.
-3. Phase 7: Projects + importing existing folders.
+1. Approvals / user-input handling for non-full-access modes.
+2. Phase 7: Projects + importing existing folders (New/Import/Organize), with
+   the Four Spaces kind registry native.
+3. Live shell subscription so thread/project changes stream in.
 
 
 ---

@@ -7,6 +7,8 @@ struct SpaceContentList: View {
     var body: some View {
         Group {
             switch selection {
+            case .space(.chat):
+                ChatThreadList()
             case .space(let space):
                 SpaceThreadPlaceholder(space: space)
             case .global(.scheduled):
