@@ -13,6 +13,8 @@ struct SpaceContentList: View {
                 ProjectsList(space: space)
             case .global(.scheduled):
                 ScheduledPlaceholder()
+            case .global(.usage):
+                UsagePlaceholder()
             case .global(.settings):
                 SettingsPlaceholder()
             case nil:
@@ -23,6 +25,16 @@ struct SpaceContentList: View {
             }
         }
         .navigationSplitViewColumnWidth(min: 260, ideal: 320, max: 420)
+    }
+}
+
+private struct UsagePlaceholder: View {
+    var body: some View {
+        List {
+            Text("Today, OpenRouter and top models.")
+                .foregroundStyle(.secondary)
+        }
+        .navigationTitle("Usage")
     }
 }
 

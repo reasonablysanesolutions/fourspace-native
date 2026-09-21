@@ -256,4 +256,21 @@ final class HarnessStore {
         guard let connection else { return nil }
         return connection.subscribeThread(threadId: threadId)
     }
+
+    // MARK: - Usage
+
+    func usageSummary(sinceDay: String, untilDay: String, timeZone: String) async throws -> JSONValue {
+        guard let connection else { throw HarnessError.notConnected }
+        return try await connection.request(tag: "server.getUsageSummary", payload: .object([
+            "sinceDay": .string(sinceDay),
+            "untilDay": .string(untilDay),
+            "timeZone": .string(timeZone),
+            "resolution": .string("day"),
+        ]))
+    }
+
+    func openRouterUsage() async throws -> JSONValue {
+        guard let connection else { throw HarnessError.notConnected }
+        return try await connection.request(tag: "fourspaces.getOpenRouterUsage", payload: .object([:]))
+    }
 }

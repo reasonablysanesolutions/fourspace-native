@@ -7,6 +7,7 @@ struct FourspaceNativeApp: App {
     @State private var registry: FourSpacesRegistry
     @State private var chat: ChatViewModel
     @State private var projects: ProjectsViewModel
+    @State private var usage = UsageViewModel()
 
     init() {
         let harness = HarnessStore()
@@ -25,6 +26,7 @@ struct FourspaceNativeApp: App {
                 .environment(registry)
                 .environment(chat)
                 .environment(projects)
+                .environment(usage)
         }
         .defaultSize(width: 1280, height: 820)
         .commands {

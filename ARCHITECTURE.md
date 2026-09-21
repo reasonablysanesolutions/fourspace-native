@@ -44,6 +44,8 @@ macos/
       ProjectsViewModel.swift       project list, create/import, threads
     Notes/
       NotesViewModel.swift          NOTES.md editor state + autosave
+    Usage/
+      UsageViewModel.swift          usage summary + OpenRouter + SEK
     Security/
       Keychain.swift                generic-password Keychain wrapper
     Debug/
@@ -60,7 +62,9 @@ macos/
       ModelPicker.swift             shared provider/model picker
       ProjectsList.swift            project list + New Project sheet
       ProjectDetail.swift           project threads + conversation
-      NotesSheet.swift              NOTES.md editor sheet
+      NotesPanel.swift              NOTES.md side panel
+      UsageView.swift               usage overview
+      RailUsageBar.swift            compact rail usage indicator
   scripts/
     build-app.sh                    builds and bundles FourspaceNative.app
 ```
@@ -151,6 +155,20 @@ project is recorded separately and hidden from kind spaces.
   a context menu classifies (Experiment/Project/Product/Unclassified) and links
   or unlinks a project to a Product. New projects adopt the kind of the space
   they were created in. A Product's detail lists the projects linked to it.
+
+## Usage (Phase 14)
+
+`UsageViewModel` loads `server.getUsageSummary` for the local day (daily
+buckets, current time zone) and `fourspaces.getOpenRouterUsage`. It aggregates
+cost, tokens, cache hit rate and cache savings, and ranks models by cost.
+
+- The **rail** shows a compact indicator: today's cost in SEK, total tokens,
+  cache %, and OpenRouter's day when a key is configured.
+- The **Usage** destination shows Today, OpenRouter (today/7d/30d) and top
+  models, with each SEK figure alongside its USD source.
+- Costs are USD from the providers; SEK is a display conversion using an
+  editable rate (`fourspace.usdSekRate`, default 10.5) so the app stays
+  offline-friendly. Unconfigured OpenRouter is a normal state, not an error.
 
 ## Notes (Phase 7)
 

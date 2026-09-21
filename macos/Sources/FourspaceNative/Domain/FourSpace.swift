@@ -55,6 +55,7 @@ enum FourSpace: String, CaseIterable, Identifiable, Hashable {
 /// Global destinations that live below the four spaces in the rail.
 enum GlobalDestination: String, CaseIterable, Identifiable, Hashable {
     case scheduled
+    case usage
     case settings
 
     var id: String { rawValue }
@@ -62,6 +63,7 @@ enum GlobalDestination: String, CaseIterable, Identifiable, Hashable {
     var title: String {
         switch self {
         case .scheduled: "Scheduled"
+        case .usage: "Usage"
         case .settings: "Settings"
         }
     }
@@ -69,6 +71,7 @@ enum GlobalDestination: String, CaseIterable, Identifiable, Hashable {
     var symbol: String {
         switch self {
         case .scheduled: "clock"
+        case .usage: "chart.bar.xaxis"
         case .settings: "gearshape"
         }
     }

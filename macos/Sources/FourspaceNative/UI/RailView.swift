@@ -29,5 +29,8 @@ struct RailView: View {
         .listStyle(.sidebar)
         .navigationTitle("Four Space")
         .navigationSplitViewColumnWidth(min: 180, ideal: 205, max: 260)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            RailUsageBar()
+        }
     }
 }

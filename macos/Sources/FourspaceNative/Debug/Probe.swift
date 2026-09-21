@@ -62,6 +62,24 @@ enum Probe {
                 return
             }
 
+            // Usage mode: verify the usage + OpenRouter RPCs.
+            if environment["FOURSPACE_PROBE_USAGE"] != nil {
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-MM-dd"
+                let day = formatter.string(from: Date())
+                let summary = try await connection.request(tag: "server.getUsageSummary", payload: .object([
+                    "sinceDay": .string(day),
+                    "untilDay": .string(day),
+                    "timeZone": .string(TimeZone.current.identifier),
+                    "resolution": .string("day"),
+                ]))
+                log("probe: usage buckets = \(summary["buckets"]?.arrayValue?.count ?? -1), pricing = \(summary["pricing"]?["status"]?.stringValue ?? "?")")
+                let openRouter = try await connection.request(tag: "fourspaces.getOpenRouterUsage", payload: .object([:]))
+                log("probe: openrouter status = \(openRouter["status"]?.stringValue ?? "?")")
+                await connection.disconnect()
+                return
+            }
+
             let providers = config.providers.filter { $0.isReady && !$0.models.isEmpty }
             guard let provider = providers.first, let model = provider.models.first else {
                 log("probe: no ready provider with models")

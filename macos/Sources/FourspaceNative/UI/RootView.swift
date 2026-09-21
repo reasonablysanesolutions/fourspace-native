@@ -7,6 +7,7 @@ struct RootView: View {
     @Environment(HarnessStore.self) private var harness
     @Environment(ChatViewModel.self) private var chat
     @Environment(ProjectsViewModel.self) private var projects
+    @Environment(UsageViewModel.self) private var usage
 
     var body: some View {
         @Bindable var app = app
@@ -23,6 +24,7 @@ struct RootView: View {
             guard harness.isConnected else { return }
             await chat.connect()
             await projects.refresh()
+            await usage.load(harness: harness)
         }
     }
 

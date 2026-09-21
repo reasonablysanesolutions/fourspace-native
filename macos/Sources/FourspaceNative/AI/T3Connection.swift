@@ -168,6 +168,11 @@ actor T3Connection {
         _ = try await rpc.request(tag: "orchestration.dispatchCommand", payload: command)
     }
 
+    /// Generic unary RPC passthrough for methods without a dedicated helper.
+    func request(tag: String, payload: JSONValue) async throws -> JSONValue {
+        try await rpc.request(tag: tag, payload: payload)
+    }
+
     func createProject(title: String, workspaceRoot: String, createIfMissing: Bool) async throws -> String {
         let projectId = UUID().uuidString
         try await dispatch(.object([

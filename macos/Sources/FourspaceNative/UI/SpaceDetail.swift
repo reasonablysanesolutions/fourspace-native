@@ -12,11 +12,16 @@ struct SpaceDetail: View {
         case .space:
             ProjectDetail()
         case .global(let destination):
-            ContentUnavailableView(
-                destination.title,
-                systemImage: destination.symbol,
-                description: Text("Not implemented yet.")
-            )
+            switch destination {
+            case .usage:
+                UsageView()
+            case .scheduled, .settings:
+                ContentUnavailableView(
+                    destination.title,
+                    systemImage: destination.symbol,
+                    description: Text("Not implemented yet.")
+                )
+            }
         case nil:
             ContentUnavailableView(
                 "Four Space",
