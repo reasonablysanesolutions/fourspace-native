@@ -28,6 +28,9 @@ under "Appendix: Four Spaces Electron memory".
   cross-volume safe), Remove Project (record only; folder untouched), project
   threads and conversations. Root defaults to `/Volumes/Mr_Jones/T3` if present
   else `~/FourSpace`.
+- Notes: a NOTES.md editor for any project/experiment/product, opened from the
+  header. Read once, autosave 1.5 s, missing file starts empty; uses
+  `projects.readFile`/`projects.writeFile`. File is the source of truth.
 - Four Spaces kind registry: `FourSpacesRegistry` classifies projects as
   experiment/project/product, persisted to
   `~/Library/Application Support/FourSpace/registry.json` (open JSON, no lock-in).

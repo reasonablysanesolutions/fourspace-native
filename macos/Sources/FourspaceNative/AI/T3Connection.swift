@@ -200,6 +200,24 @@ actor T3Connection {
         ]))
     }
 
+    /// Reads a workspace-relative file. Throws when the file is missing or
+    /// unreadable; callers distinguish the two.
+    func readFile(cwd: String, relativePath: String) async throws -> String {
+        let result = try await rpc.request(tag: "projects.readFile", payload: .object([
+            "cwd": .string(cwd),
+            "relativePath": .string(relativePath),
+        ]))
+        return result["contents"]?.stringValue ?? ""
+    }
+
+    func writeFile(cwd: String, relativePath: String, contents: String) async throws {
+        _ = try await rpc.request(tag: "projects.writeFile", payload: .object([
+            "cwd": .string(cwd),
+            "relativePath": .string(relativePath),
+            "contents": .string(contents),
+        ]))
+    }
+
     /// Moves or copies a folder on the server host (cross-volume safe) via the
     /// Four Spaces relocation RPC. Returns the resulting path.
     func relocateWorkspace(sourcePath: String, destinationPath: String, mode: String) async throws -> String {

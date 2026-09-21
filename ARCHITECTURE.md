@@ -42,6 +42,8 @@ macos/
       ChatViewModel.swift           Chat space over the shared harness
     Projects/
       ProjectsViewModel.swift       project list, create/import, threads
+    Notes/
+      NotesViewModel.swift          NOTES.md editor state + autosave
     Security/
       Keychain.swift                generic-password Keychain wrapper
     Debug/
@@ -58,6 +60,7 @@ macos/
       ModelPicker.swift             shared provider/model picker
       ProjectsList.swift            project list + New Project sheet
       ProjectDetail.swift           project threads + conversation
+      NotesSheet.swift              NOTES.md editor sheet
   scripts/
     build-app.sh                    builds and bundles FourspaceNative.app
 ```
@@ -148,6 +151,23 @@ project is recorded separately and hidden from kind spaces.
   a context menu classifies (Experiment/Project/Product/Unclassified) and links
   or unlinks a project to a Product. New projects adopt the kind of the space
   they were created in. A Product's detail lists the projects linked to it.
+
+## Notes (Phase 7)
+
+A pretty editor over **`NOTES.md` in the workspace root**, opened from the
+Notes button in a project/experiment/product's header. The file is the source
+of truth: any editor or harness can read and write it, it versions like any
+other file, and losing Four Space changes nothing about it. Notes are never
+attached to prompts automatically.
+
+Behaviour mirrors the Electron product:
+
+- Read once on open via `projects.readFile`; a missing `NOTES.md` starts empty
+  and is created on first save.
+- Any other read failure blocks editing, so an unreadable file is never
+  silently overwritten.
+- Autosave 1.5 s after the last keystroke via `projects.writeFile`; last writer
+  wins. Status shows Loading / New file / Edited / Saving / Saved / error.
 
 ## Projects (Phase 7)
 

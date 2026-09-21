@@ -8,6 +8,7 @@ final class ProjectsViewModel {
     let harness: HarnessStore
     let registry: FourSpacesRegistry
     let conversation = ConversationViewModel()
+    let notes = NotesViewModel()
 
     /// Which kind space is showing. Filters the list via the registry.
     var space: FourSpace = .project

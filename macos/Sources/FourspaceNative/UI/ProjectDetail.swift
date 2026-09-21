@@ -4,6 +4,7 @@ import SwiftUI
 /// the conversation for the active thread.
 struct ProjectDetail: View {
     @Environment(ProjectsViewModel.self) private var projects
+    @State private var showNotes = false
 
     var body: some View {
         @Bindable var projects = projects
@@ -18,6 +19,9 @@ struct ProjectDetail: View {
                         Divider()
                         conversationColumn
                     }
+                }
+                .sheet(isPresented: $showNotes) {
+                    NotesSheet(project: project)
                 }
             } else {
                 ContentUnavailableView(
@@ -48,6 +52,12 @@ struct ProjectDetail: View {
                 .foregroundStyle(.secondary)
             }
             Spacer()
+            Button {
+                showNotes = true
+            } label: {
+                Label("Notes", systemImage: "note.text")
+            }
+            .controlSize(.small)
             ModelPicker()
         }
         .padding(.horizontal, 16)

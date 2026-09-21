@@ -189,6 +189,22 @@ final class HarnessStore {
         try await connection.updateProjectWorkspace(projectId: projectId, workspaceRoot: workspaceRoot)
     }
 
+    /// Returns the file contents, or nil when the file does not exist.
+    func readFile(cwd: String, relativePath: String) async throws -> String? {
+        guard let connection else { throw HarnessError.notConnected }
+        do {
+            return try await connection.readFile(cwd: cwd, relativePath: relativePath)
+        } catch {
+            if NotesFile.isMissingError(error) { return nil }
+            throw error
+        }
+    }
+
+    func writeFile(cwd: String, relativePath: String, contents: String) async throws {
+        guard let connection else { throw HarnessError.notConnected }
+        try await connection.writeFile(cwd: cwd, relativePath: relativePath, contents: contents)
+    }
+
     func relocateWorkspace(
         sourcePath: String,
         destinationPath: String,

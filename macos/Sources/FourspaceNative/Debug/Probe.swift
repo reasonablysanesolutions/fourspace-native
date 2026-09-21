@@ -41,6 +41,19 @@ enum Probe {
                 return
             }
 
+            // Notes mode: read + append + write NOTES.md in a workspace.
+            if let cwd = environment["FOURSPACE_PROBE_NOTES"] {
+                var before: String?
+                do { before = try await connection.readFile(cwd: cwd, relativePath: "NOTES.md") } catch { before = nil }
+                log("probe: notes before = \(before.map { "\($0.count) chars" } ?? "<missing>")")
+                let updated = (before ?? "") + "\nnotes-probe-\(Int(Date().timeIntervalSince1970))\n"
+                try await connection.writeFile(cwd: cwd, relativePath: "NOTES.md", contents: updated)
+                let after = try await connection.readFile(cwd: cwd, relativePath: "NOTES.md")
+                log("probe: notes after = \(after.count) chars")
+                await connection.disconnect()
+                return
+            }
+
             let providers = config.providers.filter { $0.isReady && !$0.models.isEmpty }
             guard let provider = providers.first, let model = provider.models.first else {
                 log("probe: no ready provider with models")
