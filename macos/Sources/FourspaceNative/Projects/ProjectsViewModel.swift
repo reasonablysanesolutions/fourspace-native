@@ -9,6 +9,7 @@ final class ProjectsViewModel {
     let registry: FourSpacesRegistry
     let conversation = ConversationViewModel()
     let notes = NotesViewModel()
+    let files = FilesViewModel()
 
     /// Which kind space is showing. Filters the list via the registry.
     var space: FourSpace = .project

@@ -49,6 +49,8 @@ macos/
     Scheduled/
       ScheduledModels.swift         job/schedule/run types
       ScheduledViewModel.swift      job CRUD, run now, history
+    Files/
+      FilesViewModel.swift          project file tree + file reader
     Security/
       Keychain.swift                generic-password Keychain wrapper
     Debug/
@@ -72,6 +74,7 @@ macos/
       ScheduledList.swift           scheduled jobs list
       ScheduledDetail.swift         job detail + run history
       ScheduledJobSheet.swift       create/edit job
+      FilesPanel.swift              file browser + viewer
   scripts/
     build-app.sh                    builds and bundles FourspaceNative.app
 ```
@@ -162,6 +165,14 @@ project is recorded separately and hidden from kind spaces.
   a context menu classifies (Experiment/Project/Product/Unclassified) and links
   or unlinks a project to a Product. New projects adopt the kind of the space
   they were created in. A Product's detail lists the projects linked to it.
+
+## Files (Phase 8)
+
+`FilesViewModel` browses a project through `projects.listEntries` (immediate
+children per directory, lazy on expand) and reads files with
+`projects.readFile`. `FilesPanel` is the right-hand browser toggled from the
+project header; ignored entries are hidden unless the Ignored checkbox is on.
+Git, terminal and editing are still to come.
 
 ## Settings (Phase 15)
 

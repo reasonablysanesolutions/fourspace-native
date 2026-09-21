@@ -5,6 +5,7 @@ import SwiftUI
 struct ProjectDetail: View {
     @Environment(ProjectsViewModel.self) private var projects
     @State private var showNotes = false
+    @State private var showFiles = false
 
     var body: some View {
         @Bindable var projects = projects
@@ -22,11 +23,16 @@ struct ProjectDetail: View {
                             Divider()
                             NotesPanel(project: project)
                                 .frame(minWidth: 280, idealWidth: 360, maxWidth: 560)
+                        } else if showFiles {
+                            Divider()
+                            FilesPanel(project: project)
+                                .frame(minWidth: 280, idealWidth: 380, maxWidth: 680)
                         }
                     }
                 }
                 .task(id: project.id) {
                     await projects.notes.open(project: project, harness: projects.harness)
+                    await projects.files.open(project: project, harness: projects.harness)
                 }
             } else {
                 ContentUnavailableView(
@@ -57,12 +63,30 @@ struct ProjectDetail: View {
                 .foregroundStyle(.secondary)
             }
             Spacer()
-            Toggle(isOn: $showNotes) {
+            Toggle(isOn: Binding(
+                get: { showNotes },
+                set: { value in
+                    showNotes = value
+                    if value { showFiles = false }
+                }
+            )) {
                 Label("Notes", systemImage: "note.text")
             }
             .toggleStyle(.button)
             .controlSize(.small)
             .help("Show notes beside the conversation")
+            Toggle(isOn: Binding(
+                get: { showFiles },
+                set: { value in
+                    showFiles = value
+                    if value { showNotes = false }
+                }
+            )) {
+                Label("Files", systemImage: "folder")
+            }
+            .toggleStyle(.button)
+            .controlSize(.small)
+            .help("Browse project files")
             ModelPicker()
         }
         .padding(.horizontal, 16)
